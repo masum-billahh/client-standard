@@ -1,0 +1,180 @@
+/**
+ * WooCommerce PayPal Proxy Client Checkout Styles
+ */
+ 
+ /* Allow iframe to resize smoothly */
+#paypal-proxy-iframe {
+    
+    max-width: 100%;
+    min-width: 100px;
+    transition: height 0.3s ease;
+}
+
+/* PayPal Buttons Container */
+.wpppc-paypal-buttons-container {
+    margin: 20px 0;
+    position: relative;
+}
+
+/* PayPal Iframe Wrapper */
+.wpppc-iframe-wrapper {
+    width: 100%;
+    min-height: 150px !important;
+    transition: opacity 0.3s ease;
+}
+
+/* Messages */
+.wpppc-message,
+.wpppc-error {
+    margin: 10px 0;
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.wpppc-message {
+    background-color: #f8f9fa;
+    border: 1px solid #d6d8db;
+    color: #1e2125;
+}
+
+.wpppc-error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c2c7;
+    color: #842029;
+}
+
+/* Loading Indicator */
+.wpppc-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+.wpppc-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: wpppc-spin 1s linear infinite;
+    margin-bottom: 10px;
+}
+
+.wpppc-loading-text {
+    font-size: 14px;
+    color: #333;
+}
+
+/* When iframe is loading or disabled */
+.wpppc-iframe-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Fix for some themes that might break iframe sizing */
+#paypal-proxy-iframe {
+    max-width: 100%;
+    min-width: 100px;
+}
+
+/* Animation for spinner */
+@keyframes wpppc-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+    .wpppc-paypal-buttons-container {
+        margin: 15px 0;
+    }
+    
+    .wpppc-iframe-wrapper {
+        min-height: 120px;
+    }
+    
+    .wpppc-spinner {
+        width: 30px;
+        height: 30px;
+        border-width: 3px;
+    }
+    
+    .wpppc-loading-text {
+        font-size: 12px;
+    }
+}
+
+/* Fix for validation error display */
+.woocommerce-error {
+    list-style: none;
+    padding-left: 0;
+}
+
+.form-row .woocommerce-error {
+    font-size: 12px;
+    margin-top: 5px;
+    color: #b81c23;
+}
+
+/* Fix for PayPal buttons on some themes */
+#paypal-proxy-iframe iframe {
+    min-width: 100px !important;
+    width: 100% !important;
+}
+
+
+
+
+
+
+
+
+
+
+#wpppc-express-fullscreen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.wpppc-express-loading-wrapper {
+    text-align: center;
+}
+
+.wpppc-express-loading {
+    background: white;
+    padding: 20px;
+    border-radius: 5px;
+}
+
+.wpppc-express-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
