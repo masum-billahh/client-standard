@@ -63,134 +63,143 @@ class WPPPC_Standard_Proxy_Client {
         // Validation happens in WooCommerce core
     }
     
-    /**
-     * Process order after checkout for standard mode redirect
-     */
-    public function checkout_order_processed($order_id, $posted_data, $order) {
-        // Only process for our gateway
-        if ($order->get_payment_method() !== 'paypal_standard_proxy') {
-            return;
-        }
-        
-        // Get server from server manager
-        $server_manager = WPPPC_Server_Manager::get_instance();
-        $server = $server_manager->get_selected_server();
-        
-        if (!$server) {
-            $server = $server_manager->get_next_available_server();
-        }
-        
-        if (!$server) {
-            wc_add_notice(__('No PayPal server available. Please try again or contact support.', 'woo-paypal-proxy-client'), 'error');
-            return;
-        }
-        
-        // Store server ID in order
-        update_post_meta($order_id, '_wpppc_server_id', $server->id);
-        
-        // Generate security token
-        $token = wp_create_nonce('wpppc-standard-order-' . $order_id);
-        update_post_meta($order_id, '_wpppc_standard_token', $token);
-        
-        // Prepare order items for PayPal
-        $items = array();
-        foreach ($order->get_items() as $item) {
-            $product = $item->get_product();
-            $items[] = array(
-                'name' => $item->get_name(),
-                'price' => $order->get_item_subtotal($item, false),
-                'quantity' => $item->get_quantity(),
-                'product_id' => $product ? $product->get_id() : 0
-            );
-        }
-        
-        // Build redirect URL
-        $redirect_url = $server->url . '/wp-json/wppps/v1/standard-bridge';
-        
-        // Add parameters
-        $params = array(
-            'order_id' => $order_id,
-            'order_key' => $order->get_order_key(),
-            'client_site' => home_url(),
-            'return_url' => $order->get_checkout_order_received_url(),
-            'cancel_url' => wc_get_checkout_url(),
-            'token' => $token,
-            'api_key' => $server->api_key,
-            'currency' => $order->get_currency(),
-            'amount' => $order->get_total(),
-            'shipping' => $order->get_shipping_total(),
-            'tax' => $order->get_total_tax(),
-            'items' => base64_encode(json_encode($items))
-        );
-        
-        $redirect_url = add_query_arg($params, $redirect_url);
-        
-        // Store the URL in session for WC to use
-        WC()->session->set('wpppc_standard_redirect', $redirect_url);
+  /**
+ * Process order after checkout for standard mode redirect
+ */
+public function checkout_order_processed($order_id, $posted_data, $order) {
+    // Only process for our gateway
+    if ($order->get_payment_method() !== 'paypal_standard_proxy') {
+        return;
     }
     
-    /**
-     * Handle return from PayPal via server
-     */
-    public function handle_return() {
-        $order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
-        $order_key = isset($_GET['order_key']) ? sanitize_text_field($_GET['order_key']) : '';
-        $status = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : '';
-        $timestamp = isset($_GET['timestamp']) ? intval($_GET['timestamp']) : 0;
-        $hash = isset($_GET['hash']) ? sanitize_text_field($_GET['hash']) : '';
-        
-        // Validate basic data
-        if (!$order_id || !$order_key || !$timestamp || !$hash) {
-            wc_add_notice(__('Invalid return data', 'woo-paypal-proxy-client'), 'error');
-            wp_redirect(wc_get_checkout_url());
-            exit;
-        }
-        
-        // Get order
-        $order = wc_get_order($order_id);
-        if (!$order || $order->get_order_key() !== $order_key) {
-            wc_add_notice(__('Invalid order', 'woo-paypal-proxy-client'), 'error');
-            wp_redirect(wc_get_checkout_url());
-            exit;
-        }
-        
-        // Get server data
-        $server_id = get_post_meta($order_id, '_wpppc_server_id', true);
-        $server_manager = WPPPC_Server_Manager::get_instance();
-        $server = $server_manager->get_server($server_id);
-        
-        if (!$server) {
-            wc_add_notice(__('Invalid server configuration', 'woo-paypal-proxy-client'), 'error');
-            wp_redirect(wc_get_checkout_url());
-            exit;
-        }
-        
-        // Validate hash
-        $expected_hash = hash_hmac('sha256', $timestamp . $order_id . $server->api_key, $server->api_secret);
-        if (!hash_equals($expected_hash, $hash)) {
-            wc_add_notice(__('Security validation failed', 'woo-paypal-proxy-client'), 'error');
-            wp_redirect(wc_get_checkout_url());
-            exit;
-        }
-        
-        // Process based on status
-        if ($status === 'success') {
-            // Mark as on-hold, will be completed when IPN arrives
-            $order->update_status('on-hold', __('Awaiting PayPal IPN confirmation', 'woo-paypal-proxy-client'));
-            
-            // Empty cart
-            WC()->cart->empty_cart();
-            
-            // Redirect to thank you page
-            wp_redirect($order->get_checkout_order_received_url());
-        } else {
-            // Redirect to checkout with message
-            wc_add_notice(__('Your PayPal payment was not completed. Please try again.', 'woo-paypal-proxy-client'), 'error');
-            wp_redirect(wc_get_checkout_url());
-        }
-        
+    // Get server from server manager
+    $server_manager = WPPPC_Server_Manager::get_instance();
+    $server = $server_manager->get_selected_server();
+    
+    if (!$server) {
+        $server = $server_manager->get_next_available_server();
+    }
+    
+    if (!$server) {
+        wc_add_notice(__('No PayPal server available. Please try again or contact support.', 'woo-paypal-proxy-client'), 'error');
+        return;
+    }
+    
+    // Store server ID in order
+    update_post_meta($order_id, '_wpppc_server_id', $server->id);
+    
+    // Generate security token
+    $token = wp_create_nonce('wpppc-standard-order-' . $order_id);
+    update_post_meta($order_id, '_wpppc_standard_token', $token);
+    
+    // Generate session ID for tracking
+    $session_id = $this->store_paypal_session($order_id);
+    update_post_meta($order_id, '_wpppc_session_id', $session_id);
+    
+    // Prepare order items for PayPal
+    $items = array();
+    foreach ($order->get_items() as $item) {
+        $product = $item->get_product();
+        $items[] = array(
+            'name' => $item->get_name(),
+            'price' => $order->get_item_subtotal($item, false),
+            'quantity' => $item->get_quantity(),
+            'product_id' => $product ? $product->get_id() : 0
+        );
+    }
+    
+    // Build redirect URL
+    $redirect_url = $server->url . '/wp-json/wppps/v1/standard-bridge';
+    
+    // Add parameters
+    $params = array(
+        'order_id' => $order_id,
+        'order_key' => $order->get_order_key(),
+        'client_site' => home_url(),
+        'return_url' => $order->get_checkout_order_received_url(),
+        'cancel_url' => wc_get_checkout_url(),
+        'token' => $token,
+        'api_key' => $server->api_key,
+        'currency' => $order->get_currency(),
+        'amount' => $order->get_total(),
+        'shipping' => $order->get_shipping_total(),
+        'tax' => $order->get_total_tax(),
+        'items' => base64_encode(json_encode($items)),
+        'session_id' => $session_id  // Add session ID
+    );
+    
+    $redirect_url = add_query_arg($params, $redirect_url);
+    
+    // Store the URL in session for WC to use
+    WC()->session->set('wpppc_standard_redirect', $redirect_url);
+}
+    
+ /**
+ * Handle return from PayPal via server
+ */
+public function handle_return() {
+    $order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
+    $order_key = isset($_GET['order_key']) ? sanitize_text_field($_GET['order_key']) : '';
+    $status = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : '';
+    $timestamp = isset($_GET['timestamp']) ? intval($_GET['timestamp']) : 0;
+    $hash = isset($_GET['hash']) ? sanitize_text_field($_GET['hash']) : '';
+    
+    // Validate basic data
+    if (!$order_id || !$order_key || !$timestamp || !$hash) {
+        wc_add_notice(__('Invalid return data', 'woo-paypal-proxy-client'), 'error');
+        wp_redirect(wc_get_checkout_url());
         exit;
     }
+    
+    // Get order
+    $order = wc_get_order($order_id);
+    if (!$order || $order->get_order_key() !== $order_key) {
+        wc_add_notice(__('Invalid order', 'woo-paypal-proxy-client'), 'error');
+        wp_redirect(wc_get_checkout_url());
+        exit;
+    }
+    
+    // Get server data
+    $server_id = get_post_meta($order_id, '_wpppc_server_id', true);
+    $server_manager = WPPPC_Server_Manager::get_instance();
+    $server = $server_manager->get_server($server_id);
+    
+    if (!$server) {
+        wc_add_notice(__('Invalid server configuration', 'woo-paypal-proxy-client'), 'error');
+        wp_redirect(wc_get_checkout_url());
+        exit;
+    }
+    
+    // Validate hash
+    $expected_hash = hash_hmac('sha256', $timestamp . $order_id . $server->api_key, $server->api_secret);
+    if (!hash_equals($expected_hash, $hash)) {
+        wc_add_notice(__('Security validation failed', 'woo-paypal-proxy-client'), 'error');
+        wp_redirect(wc_get_checkout_url());
+        exit;
+    }
+    
+   // Process based on status
+    if ($status === 'success') {
+        // IMPROVED: Mark as processing temporarily, don't wait for IPN
+        // This avoids showing "pay now" buttons to the customer
+        $order->update_status('processing', __('Customer returned from PayPal. Payment pending verification.', 'woo-paypal-proxy-client'));
+        
+        // Add a flag indicating we're waiting for IPN
+        update_post_meta($order_id, '_wpppc_awaiting_ipn', 'yes');
+        
+        // Empty cart
+        WC()->cart->empty_cart();
+        
+        // Redirect to thank you page
+        wp_redirect($order->get_checkout_order_received_url());
+    } else {
+        // Redirect to checkout with message
+        wc_add_notice(__('Your PayPal payment was not completed. Please try again.', 'woo-paypal-proxy-client'), 'error');
+        wp_redirect(wc_get_checkout_url());
+    }
+    
+    exit;
+}
     
     /**
      * Handle cancellation from PayPal via server
@@ -283,18 +292,43 @@ class WPPPC_Standard_Proxy_Client {
             exit('Security validation failed');
         }
         
-        // Process based on status
-        if ($status === 'completed') {
-            // Mark payment complete
-            $order->payment_complete($transaction_id);
-            
-            // Add order note
-            $order->add_order_note(
-                sprintf(__('Payment completed via PayPal Standard (Proxy). Transaction ID: %s', 'woo-paypal-proxy-client'), 
-                $transaction_id)
-            );
-        }
+         // Process based on status
+    if ($status === 'completed') {
+        // Mark payment complete
+        $order->payment_complete($transaction_id);
         
-        exit('IPN processed');
+        // Add order note
+        $order->add_order_note(
+            sprintf(__('Payment completed via PayPal Standard (Proxy). Transaction ID: %s', 'woo-paypal-proxy-client'), 
+            $transaction_id)
+        );
+        
+        // IMPORTANT: Clear the awaiting IPN flag
+        delete_post_meta($order_id, '_wpppc_awaiting_ipn');
     }
+    
+    exit('IPN processed');
+}
+    
+/**
+ * Store PayPal session data
+ */
+private function store_paypal_session($order_id) {
+    // Generate a unique session ID
+    $session_id = wp_generate_password(32, false);
+    
+    // Store in WP option for debugging
+    update_option('wpppc_last_session_id', $session_id);
+    update_option('wpppc_last_session_order', $order_id);
+    
+    // Store in transient for 1 hour - CRITICAL: use the exact format the return handler expects
+    $transient_name = 'wpppc_paypal_session_' . $session_id;
+    set_transient($transient_name, $order_id, HOUR_IN_SECONDS);
+    
+    error_log('PayPal Session: Created session ' . $session_id . ' for order ' . $order_id);
+    error_log('PayPal Session: Transient name: ' . $transient_name);
+    
+    return $session_id;
+}
+
 }

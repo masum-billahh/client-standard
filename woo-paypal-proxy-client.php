@@ -1240,6 +1240,94 @@ add_filter('woocommerce_order_get_tax_totals', function($tax_totals, $order) {
 }, 10, 2);
 
 
+// Add a notice on the thank you page for PayPal Standard orders
+add_action('woocommerce_thankyou', 'wpppc_thankyou_processing_notice', 10, 1);
+function wpppc_thankyou_processing_notice($order_id) {
+    $order = wc_get_order($order_id);
+    
+    // Check if it's a PayPal Standard order awaiting IPN
+    if ($order && $order->get_payment_method() === 'paypal_standard_proxy' && 
+        get_post_meta($order_id, '_wpppc_awaiting_ipn', true) === 'yes') {
+        
+        echo '<div class="woocommerce-info">' . 
+             __('Thank you for your payment. Your order is being processed and you will receive a confirmation email shortly.', 'woo-paypal-proxy-client') . 
+             '</div>';
+    }
+}
+
+// Add JavaScript to auto-refresh the thank you page for PayPal orders
+add_action('wp_footer', 'wpppc_maybe_add_order_refresh_script');
+function wpppc_maybe_add_order_refresh_script() {
+    if (is_order_received_page()) {
+        // Get the order ID
+        global $wp;
+        $order_id = absint($wp->query_vars['order-received']);
+        
+        if ($order_id > 0 && get_post_meta($order_id, '_wpppc_awaiting_ipn', true) === 'yes') {
+            ?>
+            <script type="text/javascript">
+            (function($){
+                var refreshCount = 0;
+                var maxRefreshes = 3;
+                
+                function checkOrderStatus() {
+                    if (refreshCount >= maxRefreshes) return;
+                    
+                    $.ajax({
+                        url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                        type: 'POST',
+                        data: {
+                            action: 'wpppc_check_order_status',
+                            order_id: <?php echo $order_id; ?>,
+                            nonce: '<?php echo wp_create_nonce('wpppc-check-order-' . $order_id); ?>'
+                        },
+                        success: function(response) {
+                            if (response.success && response.data.refresh) {
+                                // Reload the page if status changed
+                                location.reload();
+                            } else {
+                                refreshCount++;
+                                // Try again in 5 seconds
+                                setTimeout(checkOrderStatus, 5000);
+                            }
+                        },
+                        error: function() {
+                            refreshCount++;
+                            // Try again in 5 seconds
+                            setTimeout(checkOrderStatus, 5000);
+                        }
+                    });
+                }
+                
+                // Start checking after 3 seconds
+                setTimeout(checkOrderStatus, 3000);
+            })(jQuery);
+            </script>
+            <?php
+        }
+    }
+}
+
+// AJAX handler to check order status
+add_action('wp_ajax_wpppc_check_order_status', 'wpppc_check_order_status');
+add_action('wp_ajax_nopriv_wpppc_check_order_status', 'wpppc_check_order_status');
+function wpppc_check_order_status() {
+    // Verify nonce
+    $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+    check_ajax_referer('wpppc-check-order-' . $order_id, 'nonce');
+    
+    $refresh = false;
+    
+    // Check if the order exists and if the IPN flag is still set
+    $awaiting_ipn = get_post_meta($order_id, '_wpppc_awaiting_ipn', true);
+    
+    if ($awaiting_ipn !== 'yes') {
+        // IPN has been processed, refresh the page
+        $refresh = true;
+    }
+    
+    wp_send_json_success(array('refresh' => $refresh));
+}
 
 
 /**
