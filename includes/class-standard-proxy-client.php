@@ -111,22 +111,61 @@ public function checkout_order_processed($order_id, $posted_data, $order) {
     // Build redirect URL
     $redirect_url = $server->url . '/wp-json/wppps/v1/standard-bridge';
     
-    // Add parameters
-    $params = array(
-        'order_id' => $order_id,
-        'order_key' => $order->get_order_key(),
-        'client_site' => home_url(),
-        'return_url' => $order->get_checkout_order_received_url(),
-        'cancel_url' => wc_get_checkout_url(),
-        'token' => $token,
-        'api_key' => $server->api_key,
-        'currency' => $order->get_currency(),
-        'amount' => $order->get_total(),
-        'shipping' => $order->get_shipping_total(),
-        'tax' => $order->get_total_tax(),
-        'items' => base64_encode(json_encode($items)),
-        'session_id' => $session_id  // Add session ID
+  
+
+// Get billing/shipping address from order
+$billing_address = array(
+    'first_name' => $order->get_billing_first_name(),
+    'last_name'  => $order->get_billing_last_name(),
+    'company'    => $order->get_billing_company(),
+    'address_1'  => $order->get_billing_address_1(),
+    'address_2'  => $order->get_billing_address_2(),
+    'city'       => $order->get_billing_city(),
+    'state'      => $order->get_billing_state(),
+    'postcode'   => $order->get_billing_postcode(),
+    'country'    => $order->get_billing_country(),
+    'email'      => $order->get_billing_email(),
+    'phone'      => $order->get_billing_phone()
+);
+
+// Check if shipping is different from billing
+$ship_to_different_address = !empty($_POST['ship_to_different_address']);
+if ($ship_to_different_address) {
+    $shipping_address = array(
+        'first_name' => $order->get_shipping_first_name(),
+        'last_name'  => $order->get_shipping_last_name(),
+        'company'    => $order->get_shipping_company(),
+        'address_1'  => $order->get_shipping_address_1(),
+        'address_2'  => $order->get_shipping_address_2(),
+        'city'       => $order->get_shipping_city(),
+        'state'      => $order->get_shipping_state(),
+        'postcode'   => $order->get_shipping_postcode(),
+        'country'    => $order->get_shipping_country()
     );
+} else {
+    // Billing and shipping are the same
+    $shipping_address = $billing_address;
+}
+
+// Add addresses to params
+$params = array(
+    'order_id' => $order_id,
+    'order_key' => $order->get_order_key(),
+    'client_site' => home_url(),
+    'return_url' => $order->get_checkout_order_received_url(),
+    'cancel_url' => wc_get_checkout_url(),
+    'token' => $token,
+    'api_key' => $server->api_key,
+    'currency' => $order->get_currency(),
+    'amount' => $order->get_total(),
+    'shipping' => $order->get_shipping_total(),
+    'tax' => $order->get_total_tax(),
+    'items' => base64_encode(json_encode($items)),
+    'session_id' => $session_id,
+    'address_override' => '1', // Tell PayPal to use our address
+    'shipping_address' => base64_encode(json_encode($shipping_address)),
+    'billing_address' => base64_encode(json_encode($billing_address))
+);
     
     $redirect_url = add_query_arg($params, $redirect_url);
     
