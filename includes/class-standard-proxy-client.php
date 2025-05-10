@@ -180,9 +180,8 @@ if ($ship_to_different_address) {
 $params = array(
     'order_id' => $order_id,
     'order_key' => $order->get_order_key(),
-    'client_site' => home_url(),
-    'return_url' => $order->get_checkout_order_received_url(),
-    'cancel_url' => wc_get_checkout_url(),
+    //'return_url' => $order->get_checkout_order_received_url(),
+    //'cancel_url' => wc_get_checkout_url(),
     'token' => $token,
     'api_key' => $server->api_key,
     'currency' => $order->get_currency(),
