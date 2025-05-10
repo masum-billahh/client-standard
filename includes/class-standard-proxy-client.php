@@ -188,6 +188,7 @@ $params = array(
     'amount' => $order->get_total(),
     'shipping' => $order->get_shipping_total(),
     'tax' => $order->get_total_tax(),
+    'discount_total' => $order->get_discount_total(),
     'items' => base64_encode(json_encode($items)),
     'session_id' => $session_id,
     'address_override' => '1', // Tell PayPal to use our address
