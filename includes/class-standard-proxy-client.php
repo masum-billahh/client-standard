@@ -221,7 +221,7 @@ public function handle_return() {
     if ($status === 'success') {
         // IMPROVED: Mark as processing temporarily, don't wait for IPN
         // This avoids showing "pay now" buttons to the customer
-        $order->update_status('processing', __('Customer returned from PayPal. Payment pending verification.', 'woo-paypal-proxy-client'));
+        $order->update_status('processing', __('Customer returned from PayPal.', 'woo-paypal-proxy-client'));
         
         // Add a flag indicating we're waiting for IPN
         update_post_meta($order_id, '_wpppc_awaiting_ipn', 'yes');
