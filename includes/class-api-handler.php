@@ -94,7 +94,10 @@ class WPPPC_API_Handler {
             'items'          => $this->get_order_items($order),
             'site_url'       => get_site_url(),
             'server_id'      => isset($this->server->id) ? $this->server->id : 0,
+            'discount_total' => $order->get_discount_total(),
         );
+        
+        
         
         // Generate security hash
         $timestamp = time();
@@ -340,7 +343,7 @@ private function get_order_items($order) {
     /**
  * Additions to the WPPPC_API_Handler class for Express Checkout support
  * 
- * This code should be added to includes/class-api-handler.php
+ * 
  */
 
 /**

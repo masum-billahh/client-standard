@@ -594,6 +594,7 @@ $order_details = array(
     'shipping_amount' => $order->get_shipping_total(),
     'shipping_tax' => $order->get_shipping_tax(),
     'tax_total' => $order->get_cart_tax() + $order->get_shipping_tax(),
+    'discount_total' => $order->get_discount_total(),
     'currency' => get_woocommerce_currency(),
     'prices_include_tax' => wc_prices_include_tax(),
     'tax_display_cart' => get_option('woocommerce_tax_display_cart'),
