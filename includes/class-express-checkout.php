@@ -78,6 +78,12 @@ class WPPPC_Express_Checkout {
             return;
         }
         
+        //Check if server is in Personal mode, if so don't show Express Checkout
+        if (!empty($server->is_personal)) {
+            
+            return;
+        }
+        
         echo '<div class="wpppc-express-checkout-container">';
         echo '<h3>' . __('Express Checkout', 'woo-paypal-proxy-client') . '</h3>';
         echo '<p>' . __('Check out faster with PayPal', 'woo-paypal-proxy-client') . '</p>';

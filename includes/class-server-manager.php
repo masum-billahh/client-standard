@@ -121,6 +121,7 @@ class WPPPC_Server_Manager {
                         <th><?php _e('Status', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Priority', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Product Mapping', 'woo-paypal-proxy-client'); ?></th>
+                        <th><?php _e('Mode', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Actions', 'woo-paypal-proxy-client'); ?></th>
                     </tr>
                 </thead>
@@ -174,6 +175,13 @@ class WPPPC_Server_Manager {
                             }
                             ?>
                         </td>
+                            <td>
+                                <?php 
+                                $mode = $server->is_personal ? __('Personal', 'woo-paypal-proxy-client') : __('Business', 'woo-paypal-proxy-client');
+                                $mode_class = $server->is_personal ? 'personal-mode' : 'business-mode';
+                                ?>
+                                <span class="status-badge <?php echo $mode_class; ?>"><?php echo $mode; ?></span>
+                            </td>
                             
                             <td>
                                 <?php if (!$server->is_selected) : ?>
@@ -227,6 +235,15 @@ class WPPPC_Server_Manager {
                         </div>
                         
                         <div class="form-field">
+                            <label for="is_personal"><?php _e('PayPal Mode', 'woo-paypal-proxy-client'); ?></label>
+                            <select id="is_personal" name="is_personal">
+                                <option value="0"><?php _e('Business', 'woo-paypal-proxy-client'); ?></option>
+                                <option value="1"><?php _e('Personal', 'woo-paypal-proxy-client'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Business mode uses PayPal Business integration. Personal mode uses PayPal Standard.', 'woo-paypal-proxy-client'); ?></p>
+                        </div>
+                        
+                        <div class="form-field">
                             <label for="is_active"><?php _e('Status', 'woo-paypal-proxy-client'); ?></label>
                             <select id="is_active" name="is_active">
                                 <option value="1"><?php _e('Active', 'woo-paypal-proxy-client'); ?></option>
@@ -267,6 +284,16 @@ class WPPPC_Server_Manager {
             </div>
             
             <style>
+            
+            .status-badge.personal-mode {
+                background-color: #f0f7ff;
+                color: #0073aa;
+            }
+            
+            .status-badge.business-mode {
+                background-color: #f7f7f7;
+                color: #444;
+            }
                 .servers-table {
                     margin-top: 20px;
                 }
@@ -917,6 +944,7 @@ public function add_server_usage($server_id, $amount) {
                 'api_key' => sanitize_text_field($server_data['api_key']),
                 'api_secret' => sanitize_text_field($server_data['api_secret']),
                 'capacity_limit' => intval($server_data['capacity_limit']),
+                'is_personal' => intval($server_data['is_personal']),
                 'is_active' => intval($server_data['is_active']),
                 'is_selected' => $is_first_server ? 1 : 0, // Select if it's the first server
                 'priority' => intval($server_data['priority']),
@@ -973,6 +1001,7 @@ public function add_server_usage($server_id, $amount) {
                 'api_key' => sanitize_text_field($server_data['api_key']),
                 'api_secret' => sanitize_text_field($server_data['api_secret']),
                 'capacity_limit' => intval($server_data['capacity_limit']),
+                'is_personal' => intval($server_data['is_personal']),
                 'is_active' => intval($server_data['is_active']),
                 'priority' => intval($server_data['priority']),
                 'product_id_pool' => sanitize_textarea_field($server_data['product_id_pool']),

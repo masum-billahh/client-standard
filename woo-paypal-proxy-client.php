@@ -149,6 +149,11 @@ function wpppc_update_db_schema() {
             $missing_columns[] = "ADD COLUMN `is_selected` tinyint(1) NOT NULL DEFAULT 0";
         }
         
+        // Check if is_personal column exists
+        if(!in_array('is_personal', $column_names)) {
+            $missing_columns[] = "ADD COLUMN `is_personal` tinyint(1) NOT NULL DEFAULT 0";
+        }
+        
         // Add missing columns if any
         if(!empty($missing_columns)) {
             $wpdb->query("ALTER TABLE $table_name " . implode(", ", $missing_columns));
@@ -253,6 +258,13 @@ function wpppc_activate() {
     
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
+    
+    // Clean up old option if it exists
+$gateway_settings = get_option('woocommerce_paypal_proxy_settings', array());
+if (isset($gateway_settings['enable_standard'])) {
+    unset($gateway_settings['enable_standard']);
+    update_option('woocommerce_paypal_proxy_settings', $gateway_settings);
+}
     
     // Create servers table
     // We need to include the class file explicitly during activation

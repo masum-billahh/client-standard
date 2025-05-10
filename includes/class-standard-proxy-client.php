@@ -24,32 +24,47 @@ class WPPPC_Standard_Proxy_Client {
         add_filter('woocommerce_available_payment_gateways', array($this, 'manage_payment_gateways'));
     }
     
-    /**
-     * Add PayPal Standard gateway when enabled
-     */
-    public function manage_payment_gateways($gateways) {
-        // Get our proxy gateway
-        $proxy_gateway = WC()->payment_gateways->payment_gateways()['paypal_proxy'] ?? null;
-        
-        if (!$proxy_gateway) {
-            return $gateways;
-        }
-        
-        // Check if standard mode is enabled
-        $standard_enabled = $proxy_gateway->get_option('enable_standard') === 'yes';
-        
-        if ($standard_enabled) {
-            // Add a custom PayPal Standard gateway
-            $gateways['paypal_standard_proxy'] = new WPPPC_PayPal_Standard_Proxy_Gateway();
-            
-            // Remove regular proxy gateway
-            if (isset($gateways['paypal_proxy'])) {
-                unset($gateways['paypal_proxy']);
-            }
-        }
-        
+    
+    
+   public function manage_payment_gateways($gateways) {
+    // Get our proxy gateway
+    $proxy_gateway = WC()->payment_gateways->payment_gateways()['paypal_proxy'] ?? null;
+    
+    if (!$proxy_gateway) {
         return $gateways;
     }
+    
+    // Get the selected server to check mode
+    $server_manager = WPPPC_Server_Manager::get_instance();
+    $server = $server_manager->get_selected_server();
+    
+    if (!$server) {
+        $server = $server_manager->get_next_available_server();
+    }
+    
+    if (!$server) {
+        return $gateways;
+    }
+    
+    // Check if this server is set to Personal mode
+    $use_standard_mode = !empty($server->is_personal);
+    
+    if ($use_standard_mode) {
+        // Add a custom PayPal Standard gateway
+        $gateways['paypal_standard_proxy'] = new WPPPC_PayPal_Standard_Proxy_Gateway();
+        
+        // Remove regular proxy gateway
+        if (isset($gateways['paypal_proxy'])) {
+            unset($gateways['paypal_proxy']);
+        }
+        
+        wpppc_log("Using PayPal Standard mode because server ID {$server->id} is set to Personal mode");
+    } else {
+        wpppc_log("Using PayPal Business mode because server ID {$server->id} is set to Business mode");
+    }
+    
+    return $gateways;
+}
     
     /**
      * Process checkout for standard mode
@@ -88,6 +103,8 @@ public function checkout_order_processed($order_id, $posted_data, $order) {
     // Store server ID in order
     update_post_meta($order_id, '_wpppc_server_id', $server->id);
     
+       
+    
     // Generate security token
     $token = wp_create_nonce('wpppc-standard-order-' . $order_id);
     update_post_meta($order_id, '_wpppc_standard_token', $token);
@@ -107,6 +124,18 @@ public function checkout_order_processed($order_id, $posted_data, $order) {
             'product_id' => $product ? $product->get_id() : 0
         );
     }
+    
+     // Check if this is a personal server
+        $is_personal = $server->is_personal ?? 0;
+        
+        // If this is a personal server, use product mapping for line items
+        if ($is_personal) {
+            // Apply product mapping to line items
+            if (function_exists('add_product_mappings_to_items')) {
+                $items = add_product_mappings_to_items($items, $server->id);
+                wpppc_log("Standard Checkout: Product mapping applied to line items for personal server");
+            }
+        }
     
     // Build redirect URL
     $redirect_url = $server->url . '/wp-json/wppps/v1/standard-bridge';
@@ -222,6 +251,17 @@ public function handle_return() {
         // IMPROVED: Mark as processing temporarily, don't wait for IPN
         // This avoids showing "pay now" buttons to the customer
         $order->update_status('processing', __('Customer returned from PayPal.', 'woo-paypal-proxy-client'));
+        
+        // Get the order total amount
+        $order_amount = floatval($order->get_total());
+        error_log('PayPal Proxy - Order amount to add to usage for personal: ' . $order_amount);
+        
+        // Get server manager instance
+        require_once WPPPC_PLUGIN_DIR . 'includes/class-server-manager.php';
+        $server_manager = WPPPC_Server_Manager::get_instance();
+        
+        // Update usage with order amount
+        $result = $server_manager->add_server_usage($server_id, $order_amount);
         
         // Add a flag indicating we're waiting for IPN
         update_post_meta($order_id, '_wpppc_awaiting_ipn', 'yes');

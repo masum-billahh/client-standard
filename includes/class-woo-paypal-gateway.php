@@ -88,13 +88,7 @@ class WPPPC_PayPal_Gateway extends WC_Payment_Gateway {
                 'description' => __('When checked, this payment method will only be available on mobile devices.', 'woo-paypal-proxy-client'),
             ),
             
-            'enable_standard' => array(
-                'title'       => __('Use PayPal Standard', 'woo-paypal-proxy-client'),
-                'type'        => 'checkbox',
-                'label'       => __('Enable PayPal Standard mode', 'woo-paypal-proxy-client'),
-                'default'     => 'no',
-                'description' => __('When enabled, uses PayPal Standard through the proxy instead of Business integration.', 'woo-paypal-proxy-client'),
-            ),
+            
             
             'servers_notice' => array(
                 'title'       => __('Server Configuration', 'woo-paypal-proxy-client'),
