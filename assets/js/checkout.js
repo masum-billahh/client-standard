@@ -5,6 +5,20 @@
 (function($) {
     'use strict';
     
+    // CSS for expanded iframe
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .paypal-iframe-expanded {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999 !important;
+        }
+    `;
+    document.head.appendChild(style);
+    
     // PayPal Button Status
     var paypalButtonLoaded = false;
     var creatingOrder = false;
@@ -82,29 +96,36 @@
             
             // Handle different actions
             switch (data.action) {
-                case 'button_loaded':
-                    paypalButtonLoaded = true;
-                    break;
-                    
-                case 'button_clicked':
-                    handlePayPalButtonClick();
-                    break;
-                    
-                case 'order_approved':
-                    handleOrderApproved(data.payload);
-                    break;
-                    
-                case 'payment_cancelled':
-                    handlePaymentCancelled();
-                    break;
-                    
-                case 'payment_error':
-                    handlePaymentError(data.error);
-                    break;
-                    
-                 case 'resize_iframe':
-                // Handle iframe resizing
-                if (data.height) {
+            case 'button_loaded':
+                paypalButtonLoaded = true;
+                break;
+                
+            case 'button_clicked':
+                handlePayPalButtonClick();
+                break;
+                
+            case 'order_approved':
+                handleOrderApproved(data.payload);
+                break;
+                
+            case 'payment_cancelled':
+                handlePaymentCancelled();
+                break;
+                
+            case 'payment_error':
+                handlePaymentError(data.error);
+                break;
+                
+            case 'expand_iframe':
+                $('#paypal-proxy-iframe').addClass('paypal-iframe-expanded');
+                break;
+                
+            case 'resize_iframe_normal':
+                $('#paypal-proxy-iframe').removeClass('paypal-iframe-expanded');
+                break;
+                
+            case 'resize_iframe':
+                if (data.height && !$('#paypal-proxy-iframe').hasClass('paypal-iframe-expanded')) {
                     $('#paypal-proxy-iframe').css('height', data.height + 'px');
                 }
                 break;
