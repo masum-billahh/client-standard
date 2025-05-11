@@ -10,6 +10,20 @@
     var wcOrderId = null;
     var expressCheckoutActive = false;
     
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .express-paypal-iframe-expanded {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999 !important;
+        }
+    `
+    ;
+    document.head.appendChild(style);
+    
     /**
      * Debug logging helper
      */
@@ -97,7 +111,7 @@
     iframe.style.border = 'none';
     
     // Set sandbox attributes for security
-    iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-same-origin allow-top-navigation');
+    iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-same-origin allow-top-navigation allow-popups-to-escape-sandbox');
     
     // Append iframe to container
     $(target).html('');
@@ -257,6 +271,18 @@ function cleanAndParseAmount(amount) {
                 debug('Payment error:', event.data.error);
                 showError('Error processing payment: ' + (event.data.error.message || 'Unknown error'), container);
                 expressCheckoutActive = false;
+                break;
+                
+            case 'expand_iframe':
+                $('#wpppc-express-paypal-button-checkout').addClass('express-paypal-iframe-expanded');
+                document.getElementById("paypal-express-iframe-wpppc-express-paypal-button-checkout").style.height = "100%";
+
+                break;
+                
+            case 'resize_iframe_normal':
+                $('#wpppc-express-paypal-button-checkout').removeClass('express-paypal-iframe-expanded');
+                document.getElementById("paypal-express-iframe-wpppc-express-paypal-button-checkout").style.height = "45px";
+
                 break;
                 
             case 'resize_iframe':
