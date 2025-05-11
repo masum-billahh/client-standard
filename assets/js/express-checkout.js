@@ -429,6 +429,13 @@ function completeExpressCheckout(paymentData, container) {
  */
 function getSelectedShippingCost() {
     var selectedShipping = $('input[name^="shipping_method"]:checked');
+    var selectedMethod = selectedShipping.val();
+    
+    // Check if free shipping is selected
+    if (selectedMethod && selectedMethod.indexOf('free_shipping') !== -1) {
+        debug('Free shipping detected, setting cost to 0');
+        return '0.00';
+    }
     
     // First try: Get from the label
     var shippingCost = selectedShipping.closest('li').find('label .woocommerce-Price-amount').first().text();
