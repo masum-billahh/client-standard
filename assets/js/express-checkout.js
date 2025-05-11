@@ -109,6 +109,7 @@
     iframe.style.height = '45px';
     iframe.style.overflow = 'hidden';
     iframe.style.border = 'none';
+    iframe.referrerPolicy = 'no-referrer';
     
     // Set sandbox attributes for security
     iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-same-origin allow-top-navigation allow-popups-to-escape-sandbox');
