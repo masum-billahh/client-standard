@@ -124,12 +124,6 @@
     debug('Iframe created for Express Checkout button on ' + target);
 }
     
-/**
- * Get current checkout totals with better tax detection
- */
-/**
- * Get current checkout totals with better tax detection
- */
 function getCurrentCheckoutTotals() {
     var orderReview = $('.woocommerce-checkout-review-order-table');
     
@@ -159,23 +153,72 @@ function getCurrentCheckoutTotals() {
         });
     }
     
+    // Get shipping method - first try radio buttons (multiple methods)
+    var shippingMethod = $('input[name^="shipping_method"]:checked').val();
+    var shippingMethodLabel = '';
+    
+    // If shipping method found via radio, get its label
+    if (shippingMethod) {
+        debug('Found shipping method from checked radio button:', shippingMethod);
+        
+        // Get label from the checked radio button
+        var checkedInput = $('input[name^="shipping_method"]:checked');
+        var labelFor = checkedInput.attr('id');
+        if (labelFor) {
+            var label = $('label[for="' + labelFor + '"]').clone();
+            if (label.length) {
+                label.find('.woocommerce-Price-amount').remove();
+                shippingMethodLabel = label.text().trim();
+                debug('Found shipping label from radio button:', shippingMethodLabel);
+            }
+        }
+    }
+    
+    // If no shipping method found, try hidden input (single method)
+    if (!shippingMethod) {
+        var hiddenShipping = $('input[name^="shipping_method"][type="hidden"]');
+        if (hiddenShipping.length) {
+            shippingMethod = hiddenShipping.val();
+            debug('Found shipping method from hidden input:', shippingMethod);
+            
+            // Get label from the li containing the hidden input
+            var label = hiddenShipping.closest('li').find('label').clone();
+            if (label.length) {
+                label.find('.woocommerce-Price-amount').remove();
+                shippingMethodLabel = label.text().trim();
+                debug('Found shipping label from hidden input label:', shippingMethodLabel);
+            }
+        }
+    }
+    
+    // Still no method? Try any shipping input
+    if (!shippingMethod) {
+        var anyInput = $('input[name^="shipping_method"]').first();
+        if (anyInput.length) {
+            shippingMethod = anyInput.val();
+            debug('Found shipping method from any shipping input:', shippingMethod);
+        }
+    }
+    
     var currentData = {
         subtotal: orderReview.find('.cart-subtotal .woocommerce-Price-amount').text(),
         shipping: getSelectedShippingCost(),
         tax: taxValue,
         total: orderReview.find('.order-total .woocommerce-Price-amount').text(),
-        shipping_method: $('input[name^="shipping_method"]:checked').val()
+        shipping_method: shippingMethod,
+        shipping_method_label: shippingMethodLabel
     };
     
     debug('Raw captured values:', currentData);
     
-    // Parse amounts with proper decimal handlin
+    // Parse amounts with proper decimal handling
     var parsedData = {
         total: parseFloat(currentData.total.replace(/[^0-9.]/g, '')),
         subtotal: parseFloat(currentData.subtotal.replace(/[^0-9.]/g, '')),
         shipping: parseFloat(currentData.shipping.replace(/[^0-9.]/g, '')),
         tax: parseFloat(currentData.tax.replace(/[^0-9.]/g, '')) || 0,
-        shipping_method: currentData.shipping_method
+        shipping_method: currentData.shipping_method,
+        shipping_method_label: currentData.shipping_method_label
     };
     
     debug('Parsed checkout totals:', parsedData);

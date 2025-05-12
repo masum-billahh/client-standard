@@ -477,6 +477,7 @@ class WPPPC_Server_Manager {
                                     $('#api_secret').val(server.api_secret);
                                     $('#capacity_limit').val(server.capacity_limit);
                                     $('#is_active').val(server.is_active);
+                                    $('#is_personal').val(server.is_personal);
                                     $('#priority').val(server.priority);
                                     $('#product_id_pool').val(server.product_id_pool);
                                     

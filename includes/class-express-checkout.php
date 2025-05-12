@@ -244,14 +244,27 @@ if (!empty($current_totals['shipping_method'])) {
     $shipping_method_id = $current_totals['shipping_method'];
     $shipping_method_found = false;
     
+    // Use label from frontend if provided
+    $method_title = !empty($current_totals['shipping_method_label']) 
+        ? $current_totals['shipping_method_label'] 
+        : '';
+    
+    wpppc_log("Express Checkout: Using shipping method ID: " . $shipping_method_id);
+    wpppc_log("Express Checkout: Using shipping method label: " . $method_title);
+    
     // Get actual shipping method details
     foreach (WC()->shipping->get_packages() as $package_key => $package) {
         if (isset($package['rates'][$shipping_method_id])) {
             $shipping_rate = $package['rates'][$shipping_method_id];
             
+            // If no label from frontend, use the one from the rate
+            if (empty($method_title)) {
+                $method_title = $shipping_rate->get_label();
+            }
+            
             $item = new WC_Order_Item_Shipping();
             $item->set_props(array(
-                'method_title' => $shipping_rate->get_label(),
+                'method_title' => $method_title,
                 'method_id'    => $shipping_rate->get_method_id(),
                 'instance_id'  => $shipping_rate->get_instance_id(),
                 'total'        => $current_totals['shipping'],
@@ -265,21 +278,77 @@ if (!empty($current_totals['shipping_method'])) {
             $order->add_item($item);
             $shipping_method_found = true;
             
-            wpppc_log("Express Checkout: Added shipping method: " . $shipping_rate->get_label());
+            wpppc_log("Express Checkout: Added shipping method: " . $method_title);
             break;
         }
     }
     
     // Fallback if method not found
     if (!$shipping_method_found) {
-        // Try to get method name from WooCommerce shipping methods
-        $all_methods = WC()->shipping->get_shipping_methods();
-        if (isset($all_methods['flat_rate'])) {
-            $method_title = $all_methods['flat_rate']->get_method_title();
-        } else {
-            $method_title = 'Flat Rate Shipping';
+        // Try to extract method ID and instance ID
+        $method_parts = explode(':', $shipping_method_id);
+        $method_id = $method_parts[0];
+        $instance_id = isset($method_parts[1]) ? $method_parts[1] : '';
+        
+        // Use label from frontend if provided, otherwise get method name
+        if (empty($method_title)) {
+            $all_methods = WC()->shipping->get_shipping_methods();
+            if (isset($all_methods[$method_id])) {
+                $method_title = $all_methods[$method_id]->get_method_title();
+            } else {
+                $method_title = 'Shipping';
+            }
         }
         
+        $item = new WC_Order_Item_Shipping();
+        $item->set_props(array(
+            'method_title' => $method_title,
+            'method_id'    => $method_id,
+            'instance_id'  => $instance_id,
+            'total'        => $current_totals['shipping'],
+            'taxes'        => array(),
+        ));
+        $order->add_item($item);
+        
+        wpppc_log("Express Checkout: Added fallback shipping method: " . $method_title);
+    }
+} else if (!empty($current_totals['shipping']) && floatval($current_totals['shipping']) > 0) {
+    // We have shipping cost but no method
+    $method_title = !empty($current_totals['shipping_method_label']) 
+        ? $current_totals['shipping_method_label'] 
+        : 'Shipping';
+    
+    wpppc_log("Express Checkout: No shipping method ID but shipping cost exists: " . $current_totals['shipping']);
+    
+    // Get available shipping methods
+    $available_methods = array();
+    foreach (WC()->shipping->get_packages() as $package_key => $package) {
+        if (!empty($package['rates'])) {
+            $available_methods = $package['rates'];
+            break;
+        }
+    }
+    
+    // If only one method is available, use that
+    if (count($available_methods) === 1) {
+        $only_method = reset($available_methods);
+        // If no label from frontend, use the one from the method
+        if ($method_title === 'Shipping') {
+            $method_title = $only_method->get_label();
+        }
+        
+        $item = new WC_Order_Item_Shipping();
+        $item->set_props(array(
+            'method_title' => $method_title,
+            'method_id'    => $only_method->get_method_id(),
+            'instance_id'  => $only_method->get_instance_id(),
+            'total'        => $current_totals['shipping'],
+            'taxes'        => array(),
+        ));
+        $order->add_item($item);
+        wpppc_log("Express Checkout: Added single available shipping method: " . $method_title);
+    } else {
+        // No specific method found, use generic with label
         $item = new WC_Order_Item_Shipping();
         $item->set_props(array(
             'method_title' => $method_title,
@@ -288,8 +357,7 @@ if (!empty($current_totals['shipping_method'])) {
             'taxes'        => array(),
         ));
         $order->add_item($item);
-        
-        wpppc_log("Express Checkout: Added fallback shipping method: " . $method_title);
+        wpppc_log("Express Checkout: Added generic shipping with title: " . $method_title);
     }
 }
 
