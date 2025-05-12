@@ -453,7 +453,7 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
 
         // Check if we need to reload the page
         const url = new URL(window.location.href);
-        if (!url.searchParams.has('wpppc_is_real_mobile')) {
+        if (!url.searchParams.has('wpppc')) {
             // Preserve the original referrer before reload
             const originalReferrer = document.referrer;
             if (originalReferrer && originalReferrer !== "") {
@@ -472,7 +472,7 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
             }
             
             // Now reload with the mobile detection parameter
-            url.searchParams.set('wpppc_is_real_mobile', isRealMobile ? '1' : '0');
+            url.searchParams.set('wpppc', isRealMobile ? '1' : '0');
             window.location.replace(url.toString());
         }
     })();
@@ -480,15 +480,15 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
     <?php
 }
 
-private function is_real_mobile_device() {
+public function is_real_mobile_device() {
     // First check for cookie, give it priority
     if (isset($_COOKIE['wpppc_is_real_mobile'])) {
         return $_COOKIE['wpppc_is_real_mobile'] === '1';
     }
     
     // Only check query param if no cookie exists yet (first visit)
-    if (!isset($_COOKIE['wpppc_is_real_mobile']) && isset($_GET['wpppc_is_real_mobile'])) {
-        return $_GET['wpppc_is_real_mobile'] === '1';
+    if (!isset($_COOKIE['wpppc_is_real_mobile']) && isset($_GET['wpppc'])) {
+        return $_GET['wpppc'] === '1';
     }
 
     return false;

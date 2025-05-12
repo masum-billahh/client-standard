@@ -42,7 +42,9 @@ class WPPPC_Express_Checkout {
     
     /**
      * Check if PayPal gateway is enabled
-     */
+     * 
+     OLD SYSTEM WAS NOT WORKING FOR SOME WEBSITES
+     
     private function is_gateway_enabled() {
         // Get the PayPal gateway settings
         $gateway_settings = get_option('woocommerce_paypal_proxy_settings', array());
@@ -50,6 +52,36 @@ class WPPPC_Express_Checkout {
         // Check if enabled
         return isset($gateway_settings['enabled']) && $gateway_settings['enabled'] === 'yes';
     }
+    */
+    
+     /**
+     * Check if PayPal gateway is enabled
+     */
+         private function is_gateway_enabled() {
+            // Get all payment gateways
+            $payment_gateways = WC()->payment_gateways()->payment_gateways();
+            
+            // Check if our gateway exists and is enabled
+            if (isset($payment_gateways['paypal_proxy'])) {
+                $gateway = $payment_gateways['paypal_proxy'];
+                
+                // First check if the gateway is enabled
+                if ($gateway->enabled !== 'yes') {
+                    return false;
+                }
+                
+                // If mobile_only is enabled, check if we're on a mobile device
+                if ($gateway->get_option('mobile_only') === 'yes' && 
+                    method_exists($gateway, 'is_real_mobile_device')) {
+                    return $gateway->is_real_mobile_device();
+                }
+                
+                // Gateway is enabled and either mobile_only is off or we're on a mobile device
+                return true;
+            }
+            
+            return false;
+        }
     
     /**
      * Add Express Checkout button to checkout page
