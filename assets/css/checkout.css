@@ -152,6 +152,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    margin: 0px;
 }
 
 .wpppc-express-loading-wrapper {
@@ -178,3 +179,5 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+

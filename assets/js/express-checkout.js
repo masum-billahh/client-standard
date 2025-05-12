@@ -106,7 +106,7 @@
     iframe.scrolling = 'no';
     iframe.style.width = '100%';
     iframe.style.minHeight = '45px';
-    iframe.style.height = '45px';
+    iframe.style.height = '56px';
     iframe.style.overflow = 'hidden';
     iframe.style.border = 'none';
     iframe.referrerPolicy = 'no-referrer';
@@ -320,13 +320,14 @@ function cleanAndParseAmount(amount) {
             case 'expand_iframe':
                 $('#wpppc-express-paypal-button-checkout').addClass('express-paypal-iframe-expanded');
                 document.getElementById("paypal-express-iframe-wpppc-express-paypal-button-checkout").style.height = "100%";
+                document.querySelector('.wpppc-express-paypal-button').style.padding = '0';
 
                 break;
                 
             case 'resize_iframe_normal':
                 $('#wpppc-express-paypal-button-checkout').removeClass('express-paypal-iframe-expanded');
-                document.getElementById("paypal-express-iframe-wpppc-express-paypal-button-checkout").style.height = "45px";
-
+                document.getElementById("paypal-express-iframe-wpppc-express-paypal-button-checkout").style.height = "56px";
+                document.querySelector('.wpppc-express-paypal-button').style.padding = "30px";
                 break;
                 
             case 'resize_iframe':

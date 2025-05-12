@@ -116,12 +116,13 @@ class WPPPC_Express_Checkout {
             return;
         }
         
-        echo '<div class="wpppc-express-checkout-container">';
-        echo '<h3>' . __('Express Checkout', 'woo-paypal-proxy-client') . '</h3>';
-        echo '<p>' . __('Check out faster with PayPal', 'woo-paypal-proxy-client') . '</p>';
+      echo '<div class="wpppc-express-checkout-container">';
+        echo '<div class="express-label-top"><span>' . __('Express Checkout', 'woo-paypal-proxy-client') . '</span></div>';
         echo '<div id="wpppc-express-paypal-button-checkout" class="wpppc-express-paypal-button"></div>';
-        echo '</div>';
-        echo '<div class="wpppc-express-separator"><span>' . __('OR', 'woo-paypal-proxy-client') . '</span></div>';
+        echo '<div class="wpppc-express-separator"><span>' . __('OR Continue Below', 'woo-paypal-proxy-client') . '</span></div>';
+		echo '</div>';
+
+        
     }
     
     /**
