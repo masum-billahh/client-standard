@@ -404,6 +404,8 @@ function wpppc_create_order_handler() {
         if (!empty($chosen_shipping_methods)) {
             $order->update_meta_data('_wpppc_shipping_methods', $chosen_shipping_methods);
             
+            WC()->shipping->calculate_shipping(WC()->cart->get_shipping_packages());
+
             // Get all available shipping packages
             $packages = WC()->shipping->get_packages();
             
@@ -418,7 +420,7 @@ function wpppc_create_order_handler() {
                     $item = new WC_Order_Item_Shipping();
                     $item->set_props(array(
                         'method_title' => $shipping_rate->get_label(),
-                        'method_id'    => $shipping_rate->get_id(),
+                        'method_id'    => $shipping_rate->get_method_id(),
                         'total'        => wc_format_decimal($shipping_rate->get_cost()),
                         'taxes'        => $shipping_rate->get_taxes(),
                         'instance_id'  => $shipping_rate->get_instance_id(),
@@ -454,6 +456,42 @@ function wpppc_create_order_handler() {
                     $order->add_item($item);
                 }
             }
+            
+            // Special handling for free shipping
+if (!$shipping_added && !empty($chosen_shipping_methods[0]) && strpos($chosen_shipping_methods[0], 'free_shipping') !== false) {
+    // Find the free shipping rate
+    foreach ($packages as $package_key => $package) {
+        foreach ($package['rates'] as $rate_id => $rate) {
+            if ($rate->get_method_id() === 'free_shipping') {
+                $item = new WC_Order_Item_Shipping();
+                $item->set_props(array(
+                    'method_title' => $rate->get_label(),
+                    'method_id'    => 'free_shipping',
+                    'total'        => '0.00',
+                    'taxes'        => array(),
+                    'instance_id'  => $rate->get_instance_id(),
+                ));
+                $order->add_item($item);
+                $shipping_added = true;
+                error_log('PayPal Proxy - Added free shipping method: ' . $rate->get_label());
+                break 2;
+            }
+        }
+    }
+    
+    // Fallback if rate not found
+    if (!$shipping_added) {
+        $item = new WC_Order_Item_Shipping();
+        $item->set_props(array(
+            'method_title' => 'Free Shipping',
+            'method_id'    => 'free_shipping',
+            'total'        => '0.00',
+            'taxes'        => array(),
+        ));
+        $order->add_item($item);
+        error_log('PayPal Proxy - Added fallback free shipping');
+    }
+}
         }
         
         // Prepare line items array to send to PayPal proxy
