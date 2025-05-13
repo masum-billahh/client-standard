@@ -512,13 +512,13 @@ function getSelectedShippingCost() {
     var shippingCost = selectedShipping.closest('li').find('label .woocommerce-Price-amount').first().text();
     
     // Second try: Look for data attribute
-    if (!shippingCost || shippingCost.indexOf('$') === -1) {
+    if (!shippingCost) {
         var dataTable = selectedShipping.closest('tr').find('.woocommerce-Price-amount').first().text();
         if (dataTable) shippingCost = dataTable;
     }
     
     // Third try: Get from shipping row in order review
-    if (!shippingCost || shippingCost.indexOf('$') === -1) {
+    if (!shippingCost) {
         shippingCost = $('.shipping .woocommerce-Price-amount').last().text();
     }
     
