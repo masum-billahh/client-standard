@@ -46,8 +46,29 @@ class WPPPC_Standard_Proxy_Client {
         return $gateways;
     }
     
-    // Check if this server is set to Personal mode
+   // Check if this server is set to Personal mode
     $use_standard_mode = !empty($server->is_personal);
+    
+    // Check mobile_only setting
+    $mobile_only = $proxy_gateway->get_option('mobile_only') === 'yes';
+    
+    // If mobile_only is enabled, check if we're on a mobile device
+    if ($mobile_only && method_exists($proxy_gateway, 'is_real_mobile_device')) {
+        $is_mobile = $proxy_gateway->is_real_mobile_device();
+        
+        // If mobile_only is enabled and this is NOT a mobile device, 
+        // don't show either gateway
+        if (!$is_mobile) {
+            if (isset($gateways['paypal_proxy'])) {
+                unset($gateways['paypal_proxy']);
+            }
+            if (isset($gateways['paypal_standard_proxy'])) {
+                unset($gateways['paypal_standard_proxy']);
+            }
+            wpppc_log("PayPal gateways hidden - mobile_only enabled but not on mobile device");
+            return $gateways;
+        }
+    }
     
     if ($use_standard_mode) {
         // Add a custom PayPal Standard gateway
