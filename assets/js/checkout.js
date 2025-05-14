@@ -15,6 +15,7 @@
             width: 100vw !important;
             height: 100vh !important;
             z-index: 9999 !important;
+            
         }
     `;
     document.head.appendChild(style);
@@ -318,7 +319,7 @@ function handlePayPalButtonClick() {
     paypalData = payload;
     
     // Show a loading message to the user
-    showLoading('Finalizing your payment...');
+    //showLoading('Finalizing your payment...');
     
      var serverId = '';
     if (payload.proxy_data && payload.proxy_data.server_id) {
@@ -365,6 +366,7 @@ function handlePayPalButtonClick() {
     });
 }
 
+// the showLoading function
 function showLoading(message) {
     $('#wpppc-paypal-loading').show();
     $('.wpppc-loading-text').text(message || 'Processing payment...');
