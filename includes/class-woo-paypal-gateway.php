@@ -445,37 +445,44 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
     }
     ?>
     <script>
-    (function() {
-        const isRealMobile = navigator.maxTouchPoints > 1;
-
-        // Set cookie for future requests
-        document.cookie = "wpppc_is_real_mobile=" + (isRealMobile ? "1" : "0") + "; path=/; max-age=" + (30*86400);
-
-        // Check if we need to reload the page
-        const url = new URL(window.location.href);
-        if (!url.searchParams.has('wpppc')) {
-            // Preserve the original referrer before reload
-            const originalReferrer = document.referrer;
-            if (originalReferrer && originalReferrer !== "") {
-                // Only store if it's an external referrer
-                const currentDomain = window.location.hostname;
-                try {
-                    const referrerUrl = new URL(originalReferrer);
-                    
-                    if (referrerUrl.hostname !== currentDomain) {
-                        // It's an external referrer, store it
-                        document.cookie = "wpppc_original_referrer=" + encodeURIComponent(originalReferrer) + "; path=/; max-age=" + (30*86400);
-                    }
-                } catch(e) {
-                    // Invalid URL, ignore
+(function() {
+    // Check if we already have the mobile detection cookie
+    const existingCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('wpppc_is_real_mobile='));
+    
+    // Detect if this is a real mobile device
+    const isRealMobile = navigator.maxTouchPoints > 1;
+    
+    // Set the cookie regardless
+    document.cookie = "wpppc_is_real_mobile=" + (isRealMobile ? "1" : "0") + 
+                     "; path=/; max-age=" + (30*86400);
+    
+    // Only reload if this is the first visit (cookie not set yet)
+    if (!existingCookie) {
+        // Preserve the original referrer before reload
+        const originalReferrer = document.referrer;
+        if (originalReferrer && originalReferrer !== "") {
+            // Only store if it's an external referrer
+            const currentDomain = window.location.hostname;
+            try {
+                const referrerUrl = new URL(originalReferrer);
+                
+                if (referrerUrl.hostname !== currentDomain) {
+                    // It's an external referrer, store it
+                    document.cookie = "wpppc_original_referrer=" + 
+                                     encodeURIComponent(originalReferrer) + 
+                                     "; path=/; max-age=" + (30*86400);
                 }
+            } catch(e) {
+                // Invalid URL, ignore
             }
-            
-            // Now reload with the mobile detection parameter
-            url.searchParams.set('wpppc', isRealMobile ? '1' : '0');
-            window.location.replace(url.toString());
         }
-    })();
+        
+        // Now reload the page without any parameter
+        window.location.reload();
+    }
+})();
     </script>
     <?php
 }
