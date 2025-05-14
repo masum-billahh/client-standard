@@ -9,6 +9,8 @@
     var paypalOrderId = null;
     var wcOrderId = null;
     var expressCheckoutActive = false;
+    var latestCheckoutData = null;
+
     
     const style = document.createElement('style');
     style.innerHTML = `
@@ -54,6 +56,11 @@
         $(container).find('.wpppc-express-loading').hide();
     }
     
+	
+	function isCheckoutWCActive() {
+    // Check for CheckoutWC-specific indicators (adjust based on your setup)
+    return $('body').hasClass('checkoutwc-active') || $('#cfw-checkout-before-order-review').length > 0;
+}
     /**
      * Show error message
      */
@@ -125,8 +132,74 @@
 }
     
 function getCurrentCheckoutTotals() {
+    // Check if CheckoutWC is active and AJAX data is available
+   if (isCheckoutWCActive() && latestCheckoutData) {
+    console.log('✅ CheckoutWC is active');
+    console.log('📦 latestCheckoutData:', latestCheckoutData);
+
+    try {
+        var cartData = latestCheckoutData.data.cart;
+        console.log('🛒 cartData:', cartData);
+
+        var totalsData = cartData.totals;
+        console.log('💰 totalsData:', totalsData);
+
+        var shippingInfo = cartData.shipping && cartData.shipping[0];
+        console.log('🚚 shippingInfo:', shippingInfo);
+
+        var shippingMethod = shippingInfo?.chosenMethod || '';
+		var shippingMethodLabel = '';
+
+		if (shippingInfo?.availableMethods?.length) {
+			var selectedMethod = shippingInfo.availableMethods.find(
+				method => method.id === shippingInfo.chosenMethod
+			);
+
+			if (selectedMethod?.label) {
+				shippingMethodLabel = selectedMethod.label
+					.replace(/.*】/, '')  // remove everything up to and including '】'
+					.split('<')[0]        // remove price HTML
+					.trim();
+			}
+		}
+
+		
+        console.log('📦 Shipping Method:', shippingMethod);
+        console.log('🏷️ Shipping Label:', shippingMethodLabel);
+
+        var taxValue = cleanAndParseAmount(totalsData.taxes?.[0]?.value || '0');
+        var totalValue = parseFloat(latestCheckoutData.total || 0);
+        var subtotalValue = cleanAndParseAmount(totalsData.subtotal?.value || '0');
+        var shippingValue = cleanAndParseAmount(totalsData.shipping?.value || '0');
+
+        console.log('💸 Tax:', taxValue);
+        console.log('💵 Subtotal:', subtotalValue);
+        console.log('🚚 Shipping Cost:', shippingValue);
+        console.log('💰 Total:', totalValue);
+
+        var parsedData = {
+            total: totalValue,
+            subtotal: subtotalValue,
+            shipping: shippingValue,
+            tax: taxValue,
+            shipping_method: shippingMethod,
+            shipping_method_label: shippingMethodLabel
+        };
+
+
+            debug('Successfully parsed checkout totals from AJAX data:', parsedData);
+            return parsedData;
+        } catch (e) {
+            debug('Error parsing AJAX data for CheckoutWC:', e);
+            // If parsing fails, proceed to fallback
+        }
+    }
+
+    // Fallback to DOM-based method if CheckoutWC isn’t active or AJAX data isn’t usable
+    debug('Falling back to DOM-based checkout totals detection');
     var orderReview = $('.woocommerce-checkout-review-order-table');
-    
+
+    // [Existing DOM-based logic remains unchanged]
     // Try multiple selectors for tax
     var taxSelectors = [
         '.tax-total .woocommerce-Price-amount',
@@ -134,16 +207,14 @@ function getCurrentCheckoutTotals() {
         '.woocommerce-checkout-review-order table tr.tax-rate .woocommerce-Price-amount',
         '.woocommerce-checkout-review-order table tr[class*="tax"] .woocommerce-Price-amount'
     ];
-    
+
     var taxValue = '';
     for (var i = 0; i < taxSelectors.length; i++) {
         taxValue = orderReview.find(taxSelectors[i]).text();
         if (taxValue) break;
     }
-    
-    // If still no tax found, try to detect from the page structure
+
     if (!taxValue) {
-        // Check for any row with 'tax' in its class or text
         orderReview.find('tr').each(function() {
             var rowText = $(this).text().toLowerCase();
             if (rowText.includes('tax') && rowText !== '') {
@@ -152,16 +223,11 @@ function getCurrentCheckoutTotals() {
             }
         });
     }
-    
-    // Get shipping method - first try radio buttons (multiple methods)
+
     var shippingMethod = $('input[name^="shipping_method"]:checked').val();
     var shippingMethodLabel = '';
-    
-    // If shipping method found via radio, get its label
     if (shippingMethod) {
         debug('Found shipping method from checked radio button:', shippingMethod);
-        
-        // Get label from the checked radio button
         var checkedInput = $('input[name^="shipping_method"]:checked');
         var labelFor = checkedInput.attr('id');
         if (labelFor) {
@@ -169,37 +235,27 @@ function getCurrentCheckoutTotals() {
             if (label.length) {
                 label.find('.woocommerce-Price-amount').remove();
                 shippingMethodLabel = label.text().trim();
-                debug('Found shipping label from radio button:', shippingMethodLabel);
             }
         }
     }
-    
-    // If no shipping method found, try hidden input (single method)
+
     if (!shippingMethod) {
         var hiddenShipping = $('input[name^="shipping_method"][type="hidden"]');
         if (hiddenShipping.length) {
             shippingMethod = hiddenShipping.val();
-            debug('Found shipping method from hidden input:', shippingMethod);
-            
-            // Get label from the li containing the hidden input
             var label = hiddenShipping.closest('li').find('label').clone();
             if (label.length) {
                 label.find('.woocommerce-Price-amount').remove();
                 shippingMethodLabel = label.text().trim();
-                debug('Found shipping label from hidden input label:', shippingMethodLabel);
             }
         }
     }
-    
-    // Still no method? Try any shipping input
+
     if (!shippingMethod) {
         var anyInput = $('input[name^="shipping_method"]').first();
-        if (anyInput.length) {
-            shippingMethod = anyInput.val();
-            debug('Found shipping method from any shipping input:', shippingMethod);
-        }
+        if (anyInput.length) shippingMethod = anyInput.val();
     }
-    
+
     var currentData = {
         subtotal: orderReview.find('.cart-subtotal .woocommerce-Price-amount').text(),
         shipping: getSelectedShippingCost(),
@@ -208,30 +264,21 @@ function getCurrentCheckoutTotals() {
         shipping_method: shippingMethod,
         shipping_method_label: shippingMethodLabel
     };
-    
-    debug('Raw captured values:', currentData);
-    
-    // Parse amounts with proper decimal handling
+
     var parsedData = {
-        total: parseFloat(currentData.total.replace(/[^0-9.]/g, '')),
-        subtotal: parseFloat(currentData.subtotal.replace(/[^0-9.]/g, '')),
-        shipping: parseFloat(currentData.shipping.replace(/[^0-9.]/g, '')),
-        tax: parseFloat(currentData.tax.replace(/[^0-9.]/g, '')) || 0,
+        total: cleanAndParseAmount(currentData.total),
+        subtotal: cleanAndParseAmount(currentData.subtotal),
+        shipping: cleanAndParseAmount(currentData.shipping),
+        tax: cleanAndParseAmount(currentData.tax) || 0,
         shipping_method: currentData.shipping_method,
         shipping_method_label: currentData.shipping_method_label
     };
-    
-    debug('Parsed checkout totals:', parsedData);
-    
-    // Calculate tax by deduction if not found
+
     if (parsedData.tax === 0) {
         var calculatedTax = parsedData.total - parsedData.subtotal - parsedData.shipping;
-        if (calculatedTax > 0) {
-            parsedData.tax = calculatedTax;
-            debug('Calculated tax by deduction:', calculatedTax);
-        }
+        if (calculatedTax > 0) parsedData.tax = calculatedTax;
     }
-    
+
     return parsedData;
 }
 
@@ -532,6 +579,24 @@ function getSelectedShippingCost() {
      */
     function initExpressCheckout() {
     debug('Initializing PayPal Express Checkout');
+   
+// Intercept checkout update AJAX responses to get accurate data
+$(document).ajaxSuccess(function(event, xhr, settings) {
+    // Check if this is an update_order_review AJAX response
+    if (settings.url && (settings.url.indexOf('update_order_review') !== -1 || 
+                         settings.url.indexOf('update_checkout') !== -1)) {
+        try {
+            var response = xhr.responseJSON;
+            if (response) {
+                latestCheckoutData = response;
+                debug('Stored latest checkout data from AJAX response', response);
+            }
+        } catch (e) {
+            debug('Error processing AJAX response:', e);
+        }
+    }
+});
+    
     
     // Create express checkout buttons
     if (wpppc_express_params.is_cart_page) {
