@@ -189,32 +189,70 @@ function wpppc_validate_checkout_fields() {
     check_ajax_referer('wpppc-nonce', 'nonce');
     
     $errors = array();
+    $posted_data = $_POST;
     
     // Get checkout fields
     $fields = WC()->checkout()->get_checkout_fields();
     
-    // Check if shipping to different address
-    $ship_to_different_address = !empty($_POST['ship_to_different_address']);
+    // Check if shipping to a different address
+    $ship_to_different_address = !empty($posted_data['ship_to_different_address']);
     
-    // Check if creating account
-    $create_account = !empty($_POST['createaccount']);
+    // Check if creating an account
+    $create_account = !empty($posted_data['createaccount']);
     
-    // Loop through field groups and validate conditionally
+    // Initialize WooCommerce validation class
+    $validation = new WC_Validation();
+    
+    // Loop through field groups
     foreach ($fields as $fieldset_key => $fieldset) {
-        // Skip shipping fields if not shipping to different address
+        // Skip shipping fields if not shipping to a different address
         if ($fieldset_key === 'shipping' && !$ship_to_different_address) {
             continue;
         }
         
-        // Skip account fields if not creating account
+        // Skip account fields if not creating an account
         if ($fieldset_key === 'account' && !$create_account) {
             continue;
         }
         
         foreach ($fieldset as $key => $field) {
-            // Only validate required fields that are empty
-            if (!empty($field['required']) && empty($_POST[$key])) {
+            $value = isset($posted_data[$key]) ? trim($posted_data[$key]) : '';
+            
+            // Check if required and empty
+            if (!empty($field['required']) && empty($value)) {
                 $errors[$key] = sprintf(__('%s is a required field.', 'woocommerce'), $field['label']);
+                continue; // Skip further validation if empty
+            }
+            
+            // If not empty and has validation rules, check them
+            if (!empty($value) && !empty($field['validate'])) {
+                foreach ($field['validate'] as $validation_type) {
+                    switch ($validation_type) {
+                        case 'postcode':
+                            // Determine the country based on fieldset
+                            $country = '';
+                            if ($fieldset_key === 'billing') {
+                                $country = isset($posted_data['billing_country']) ? $posted_data['billing_country'] : '';
+                            } elseif ($fieldset_key === 'shipping') {
+                                $country = isset($posted_data['shipping_country']) ? $posted_data['shipping_country'] : '';
+                            }
+                            if ($country && !$validation->is_postcode($value, $country)) {
+                                $errors[$key] = sprintf(__('%s is not a valid postcode / ZIP.', 'woocommerce'), $field['label']);
+                            }
+                            break;
+                        case 'email':
+                            if (!$validation->is_email($value)) {
+                                $errors[$key] = sprintf(__('%s is not a valid email address.', 'woocommerce'), $field['label']);
+                            }
+                            break;
+                        case 'phone':
+                            if (!$validation->is_phone($value)) {
+                                $errors[$key] = sprintf(__('%s is not a valid phone number.', 'woocommerce'), $field['label']);
+                            }
+                            break;
+                        // Add other validation types as needed
+                    }
+                }
             }
         }
     }
