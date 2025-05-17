@@ -117,6 +117,7 @@
     iframe.style.overflow = 'hidden';
     iframe.style.border = 'none';
     iframe.referrerPolicy = 'no-referrer';
+    iframe.setAttribute('loading', 'lazy');
     
     // Set sandbox attributes for security
     iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-same-origin allow-top-navigation allow-popups-to-escape-sandbox');
@@ -284,22 +285,31 @@ function getCurrentCheckoutTotals() {
 
 function cleanAndParseAmount(amount) {
     if (!amount) return 0;
-    
-    // Remove all non-numeric characters except decimal point
-    var cleaned = amount.replace(/[^0-9.]/g, '');
-    
-    // Ensure only one decimal point
-    var parts = cleaned.split('.');
+
+    // Strip all HTML tags
+    amount = amount.replace(/<[^>]*>/g, '');
+
+    // Decode HTML entities like &#36; → $
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = amount;
+    let decoded = textarea.value;
+
+    // Remove all non-numeric characters except dot, comma, minus
+    decoded = decoded
+        .replace(/[^0-9.,\-]/g, '')
+        .replace(/\s/g, '')
+        .replace(',', '.');
+
+    // Handle multiple decimal points
+    const parts = decoded.split('.');
     if (parts.length > 2) {
-        cleaned = parts[0] + '.' + parts.slice(1).join('');
+        decoded = parts[0] + '.' + parts.slice(1).join('');
     }
-    
-    // Parse to float and ensure 2 decimal places
-    var parsed = parseFloat(cleaned);
-    
-    // Round to 2 decimal places to avoid floating point errors
-    return Math.round(parsed * 100) / 100;
+
+    const parsed = parseFloat(decoded);
+    return isNaN(parsed) ? 0 : Math.round(parsed * 100) / 100;
 }
+
     
     /**
      * Update iframe URL with current totals

@@ -70,18 +70,54 @@ class WPPPC_Standard_Proxy_Client {
         }
     }
     
-    if ($use_standard_mode) {
-        // Add a custom PayPal Standard gateway
-        $gateways['paypal_standard_proxy'] = new WPPPC_PayPal_Standard_Proxy_Gateway();
+ if ($use_standard_mode) {
+        // Preserve the position of the original gateway
+        // Find position of paypal_proxy in the gateways array
+        $gateway_ids = array_keys($gateways);
+        $proxy_position = array_search('paypal_proxy', $gateway_ids);
         
-        // Remove regular proxy gateway
+        // Create our standard gateway
+        $standard_gateway = new WPPPC_PayPal_Standard_Proxy_Gateway();
+        
+        if ($proxy_position !== false) {
+            // Remove original gateway
+            unset($gateways['paypal_proxy']);
+            
+            // Insert standard gateway at the same position
+            $new_gateways = array();
+            $i = 0;
+            
+            foreach ($gateway_ids as $gateway_id) {
+                if ($i === $proxy_position) {
+                    $new_gateways['paypal_standard_proxy'] = $standard_gateway;
+                }
+                
+                if ($gateway_id !== 'paypal_proxy') {
+                    $new_gateways[$gateway_id] = $gateways[$gateway_id];
+                }
+                
+                $i++;
+            }
+            
+            // If the PayPal gateway was last, add standard gateway at the end
+            if ($proxy_position === count($gateway_ids) - 1) {
+                $new_gateways['paypal_standard_proxy'] = $standard_gateway;
+            }
+            
+            wpppc_log("Using PayPal Standard mode - preserved position of original gateway");
+            return $new_gateways;
+        } else {
+            // Original gateway not found, just add standard gateway
+            $gateways['paypal_standard_proxy'] = $standard_gateway;
+            //wpppc_log("Using PayPal Standard mode - original gateway not found");
+        }
+        
+        // Remove regular proxy gateway if it exists
         if (isset($gateways['paypal_proxy'])) {
             unset($gateways['paypal_proxy']);
         }
-        
-        wpppc_log("Using PayPal Standard mode because server ID {$server->id} is set to Personal mode");
     } else {
-        wpppc_log("Using PayPal Business mode because server ID {$server->id} is set to Business mode");
+        //wpppc_log("Using PayPal Business mode because server ID {$server->id} is set to Business mode");
     }
     
     return $gateways;
