@@ -332,6 +332,7 @@ function prefill_checkout_from_external($checkout) {
     }
 }
 
+/*
 // Add notice about external source
 add_action('woocommerce_before_checkout_form', 'show_external_source_notice');
 function show_external_source_notice() {
@@ -349,7 +350,7 @@ function show_external_source_notice() {
         WC()->session->set('source_site', null);
     }
 }
-
+*/
 
 
 
@@ -366,32 +367,26 @@ function store_source_site_for_redirect() {
 }
 
 // Redirect after order completion
-add_action('woocommerce_thankyou', 'redirect_to_source_site_after_order', 10, 1);
-function redirect_to_source_site_after_order($order_id) {
-    // Only redirect if we have a source site stored
+add_action('template_redirect', 'redirect_to_source_site_after_order');
+function redirect_to_source_site_after_order() {
+    if (!is_wc_endpoint_url('order-received') || !isset($_GET['key'])) return;
+
     $source_site = WC()->session->get('redirect_source_site');
-    
-    if (!$source_site || empty($order_id)) {
-        return;
-    }
-    
-    // Get order data
+    if (!$source_site) return;
+
+    $order_id = wc_get_order_id_by_order_key(sanitize_text_field($_GET['key']));
+    if (!$order_id) return;
+
     $order = wc_get_order($order_id);
-    if (!$order) {
-        return;
-    }
-    
-    // Prepare order data to send back
+    if (!$order) return;
+
     $order_data = prepare_order_data_for_redirect($order);
-    
-    // Create the redirect form
     create_order_redirect_form($source_site, $order_data, $order_id);
-    
-    // Clear the session
+
     WC()->session->set('redirect_source_site', null);
-    
-    exit; // Prevent normal thank you page from showing
+    exit;
 }
+
 
 function prepare_order_data_for_redirect($order) {
     $order_data = array(
@@ -487,10 +482,7 @@ function create_order_redirect_form($source_site, $order_data, $order_id) {
         </form>
         
         <script>
-            // Submit form after 2 seconds
-            setTimeout(function() {
-                document.getElementById('order_redirect_form').submit();
-            }, 2000);
+           document.getElementById('order_redirect_form').submit();
         </script>
     </body>
     </html>
