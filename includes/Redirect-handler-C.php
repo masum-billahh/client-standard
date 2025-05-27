@@ -349,3 +349,150 @@ function show_external_source_notice() {
         WC()->session->set('source_site', null);
     }
 }
+
+
+
+
+
+// Store the source site URL when cart is received
+add_action('wp_ajax_nopriv_receive_external_cart', 'store_source_site_for_redirect', 5);
+add_action('wp_ajax_receive_external_cart', 'store_source_site_for_redirect', 5);
+
+function store_source_site_for_redirect() {
+    if (isset($_POST['source_site'])) {
+        $source_site = sanitize_text_field($_POST['source_site']);
+        WC()->session->set('redirect_source_site', $source_site);
+    }
+}
+
+// Redirect after order completion
+add_action('woocommerce_thankyou', 'redirect_to_source_site_after_order', 10, 1);
+function redirect_to_source_site_after_order($order_id) {
+    // Only redirect if we have a source site stored
+    $source_site = WC()->session->get('redirect_source_site');
+    
+    if (!$source_site || empty($order_id)) {
+        return;
+    }
+    
+    // Get order data
+    $order = wc_get_order($order_id);
+    if (!$order) {
+        return;
+    }
+    
+    // Prepare order data to send back
+    $order_data = prepare_order_data_for_redirect($order);
+    
+    // Create the redirect form
+    create_order_redirect_form($source_site, $order_data, $order_id);
+    
+    // Clear the session
+    WC()->session->set('redirect_source_site', null);
+    
+    exit; // Prevent normal thank you page from showing
+}
+
+function prepare_order_data_for_redirect($order) {
+    $order_data = array(
+        'order_id' => $order->get_id(),
+        'order_key' => $order->get_order_key(),
+        'order_number' => $order->get_order_number(),
+        'status' => $order->get_status(),
+        'total' => $order->get_total(),
+        'subtotal' => $order->get_subtotal(),
+        'tax_total' => $order->get_total_tax(),
+        'shipping_total' => $order->get_shipping_total(),
+        'currency' => $order->get_currency(),
+        'date_created' => $order->get_date_created()->format('Y-m-d H:i:s'),
+        'payment_method' => $order->get_payment_method(),
+        'payment_method_title' => $order->get_payment_method_title(),
+        
+        // Customer data
+        'billing' => array(
+            'first_name' => $order->get_billing_first_name(),
+            'last_name' => $order->get_billing_last_name(),
+            'email' => $order->get_billing_email(),
+            'phone' => $order->get_billing_phone(),
+            'address_1' => $order->get_billing_address_1(),
+            'address_2' => $order->get_billing_address_2(),
+            'city' => $order->get_billing_city(),
+            'state' => $order->get_billing_state(),
+            'postcode' => $order->get_billing_postcode(),
+            'country' => $order->get_billing_country(),
+        ),
+        
+        'shipping' => array(
+            'first_name' => $order->get_shipping_first_name(),
+            'last_name' => $order->get_shipping_last_name(),
+            'address_1' => $order->get_shipping_address_1(),
+            'address_2' => $order->get_shipping_address_2(),
+            'city' => $order->get_shipping_city(),
+            'state' => $order->get_shipping_state(),
+            'postcode' => $order->get_shipping_postcode(),
+            'country' => $order->get_shipping_country(),
+        ),
+        
+        // Order items
+        'items' => array()
+    );
+    
+    // Add order items
+    foreach ($order->get_items() as $item) {
+        $product = $item->get_product();
+        $external_product_id = get_post_meta($item->get_product_id(), '_external_product_id', true);
+        $external_variation_id = 0;
+        
+        if ($item->get_variation_id()) {
+            $external_variation_id = get_post_meta($item->get_variation_id(), '_external_variation_id', true);
+        }
+        
+        $order_data['items'][] = array(
+            'name' => $item->get_name(),
+            'quantity' => $item->get_quantity(),
+            'price' => $item->get_total(),
+            'external_product_id' => $external_product_id,
+            'external_variation_id' => $external_variation_id,
+            'sku' => $product ? $product->get_sku() : '',
+        );
+    }
+    
+    return $order_data;
+}
+
+function create_order_redirect_form($source_site, $order_data, $order_id) {
+    $endpoint_url = rtrim($source_site, '/') . '/wp-admin/admin-ajax.php';
+    $thank_you_url = rtrim($source_site, '/') . '/checkout/order-received/';
+    
+    ?>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Order Completed - Redirecting...</title>
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+            .loading { margin: 20px 0; }
+        </style>
+    </head>
+    <body>
+        <h2>Order Completed Successfully!</h2>
+        <p>You are being redirected back to complete your order...</p>
+        <div class="loading">Please wait...</div>
+        
+        <form id="order_redirect_form" method="POST" action="<?php echo esc_url($endpoint_url); ?>">
+            <input type="hidden" name="action" value="receive_order_completion" />
+            <input type="hidden" name="order_data" value="<?php echo esc_attr(json_encode($order_data)); ?>" />
+            <input type="hidden" name="redirect_token" value="<?php echo wp_create_nonce('order_completion'); ?>" />
+            <input type="hidden" name="thank_you_url" value="<?php echo esc_attr($thank_you_url); ?>" />
+        </form>
+        
+        <script>
+            // Submit form after 2 seconds
+            setTimeout(function() {
+                document.getElementById('order_redirect_form').submit();
+            }, 2000);
+        </script>
+    </body>
+    </html>
+    <?php
+}
