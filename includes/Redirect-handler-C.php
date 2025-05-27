@@ -17,8 +17,13 @@ function handle_external_cart_data() {
     error_log('Raw cart_data: ' . print_r($_POST['cart_data'], true));
     error_log('Decoded cart_data: ' . print_r($cart_data, true));
     
-    if (!empty($cart_data)) {
-        foreach ($cart_data as $item) {
+    if (!empty($cart_data['currency'])) {
+    WC()->session->set('external_currency', sanitize_text_field($cart_data['currency']));
+    }
+    
+    
+    if (!empty($cart_data) && isset($cart_data['items'])) {
+        foreach ($cart_data['items'] as $item) {
             $external_product_id = intval($item['product_id']);
             $quantity = intval($item['quantity']);
             $external_variation_id = isset($item['variation_id']) ? intval($item['variation_id']) : 0;
@@ -58,6 +63,13 @@ function handle_external_cart_data() {
     wp_redirect(wc_get_checkout_url());
     exit;
 }
+
+add_filter('woocommerce_currency', function($currency) {
+    if (WC()->session && WC()->session->get('external_currency')) {
+        return WC()->session->get('external_currency');
+    }
+    return $currency;
+});
 
 function find_or_create_product($item_data, $external_product_id) {
     // First, try to find by SKU if available
