@@ -18,9 +18,11 @@ function handle_external_cart_data() {
     error_log('Decoded cart_data: ' . print_r($cart_data, true));
     
     if (!empty($cart_data['currency'])) {
-    WC()->session->set('external_currency', sanitize_text_field($cart_data['currency']));
+        WC()->session->set('external_currency', sanitize_text_field($cart_data['currency']));
     }
     
+    // Initialize external pricing data storage
+    $external_pricing_data = array();
     
     if (!empty($cart_data) && isset($cart_data['items'])) {
         foreach ($cart_data['items'] as $item) {
@@ -38,15 +40,37 @@ function handle_external_cart_data() {
                     $local_variation_id = find_or_create_variation($local_product_id, $item, $external_variation_id);
                 }
                 
+                // Store external pricing data for this cart item
+                $cart_item_key = '';
+                
                 // Add to cart
                 if ($local_variation_id > 0) {
-                    WC()->cart->add_to_cart($local_product_id, $quantity, $local_variation_id);
+                    $cart_item_key = WC()->cart->add_to_cart($local_product_id, $quantity, $local_variation_id);
+                    // Store external pricing for variation
+                    $external_pricing_data[$cart_item_key] = array(
+                        'regular_price' => !empty($item['regular_price']) ? floatval($item['regular_price']) : '',
+                        'sale_price' => !empty($item['sale_price']) ? floatval($item['sale_price']) : '',
+                        'price' => !empty($item['price']) ? floatval($item['price']) : floatval($item['regular_price']),
+                        'is_variation' => true,
+                        'variation_id' => $local_variation_id
+                    );
                 } else {
-                    WC()->cart->add_to_cart($local_product_id, $quantity);
+                    $cart_item_key = WC()->cart->add_to_cart($local_product_id, $quantity);
+                    // Store external pricing for simple product
+                    $external_pricing_data[$cart_item_key] = array(
+                        'regular_price' => !empty($item['regular_price']) ? floatval($item['regular_price']) : '',
+                        'sale_price' => !empty($item['sale_price']) ? floatval($item['sale_price']) : '',
+                        'price' => !empty($item['price']) ? floatval($item['price']) : floatval($item['regular_price']),
+                        'is_variation' => false,
+                        'product_id' => $local_product_id
+                    );
                 }
             }
         }
     }
+    
+    // Store external pricing data in session
+    WC()->session->set('external_pricing_data', $external_pricing_data);
     
     // Store user data if provided
     if (isset($_POST['user_data'])) {
@@ -63,6 +87,136 @@ function handle_external_cart_data() {
     wp_redirect(wc_get_checkout_url());
     exit;
 }
+
+// Override product prices in cart with external prices
+add_filter('woocommerce_product_get_price', 'override_external_product_price', 10, 2);
+add_filter('woocommerce_product_get_regular_price', 'override_external_product_regular_price', 10, 2);
+add_filter('woocommerce_product_get_sale_price', 'override_external_product_sale_price', 10, 2);
+
+// For variations
+add_filter('woocommerce_product_variation_get_price', 'override_external_product_price', 10, 2);
+add_filter('woocommerce_product_variation_get_regular_price', 'override_external_product_regular_price', 10, 2);
+add_filter('woocommerce_product_variation_get_sale_price', 'override_external_product_sale_price', 10, 2);
+
+function override_external_product_price($price, $product) {
+    // Only override if we have external pricing data and we're in cart/checkout context
+    if (!WC()->session || !is_cart_or_checkout_context()) {
+        return $price;
+    }
+    
+    $external_pricing_data = WC()->session->get('external_pricing_data');
+    if (!$external_pricing_data) {
+        return $price;
+    }
+    
+    // Find the cart item that matches this product
+    $cart_item_key = find_cart_item_by_product($product, $external_pricing_data);
+    
+    if ($cart_item_key && isset($external_pricing_data[$cart_item_key]['price'])) {
+        return $external_pricing_data[$cart_item_key]['price'];
+    }
+    
+    return $price;
+}
+
+function override_external_product_regular_price($price, $product) {
+    // Only override if we have external pricing data and we're in cart/checkout context
+    if (!WC()->session || !is_cart_or_checkout_context()) {
+        return $price;
+    }
+    
+    $external_pricing_data = WC()->session->get('external_pricing_data');
+    if (!$external_pricing_data) {
+        return $price;
+    }
+    
+    // Find the cart item that matches this product
+    $cart_item_key = find_cart_item_by_product($product, $external_pricing_data);
+    
+    if ($cart_item_key && isset($external_pricing_data[$cart_item_key]['regular_price'])) {
+        return $external_pricing_data[$cart_item_key]['regular_price'];
+    }
+    
+    return $price;
+}
+
+function override_external_product_sale_price($price, $product) {
+    // Only override if we have external pricing data and we're in cart/checkout context
+    if (!WC()->session || !is_cart_or_checkout_context()) {
+        return $price;
+    }
+    
+    $external_pricing_data = WC()->session->get('external_pricing_data');
+    if (!$external_pricing_data) {
+        return $price;
+    }
+    
+    // Find the cart item that matches this product
+    $cart_item_key = find_cart_item_by_product($product, $external_pricing_data);
+    
+    if ($cart_item_key && isset($external_pricing_data[$cart_item_key]['sale_price'])) {
+        return $external_pricing_data[$cart_item_key]['sale_price'];
+    }
+    
+    return $price;
+}
+
+function find_cart_item_by_product($product, $external_pricing_data) {
+    $product_id = $product->get_id();
+    $parent_id = $product->get_parent_id();
+    
+    foreach ($external_pricing_data as $cart_item_key => $pricing_data) {
+        if ($pricing_data['is_variation'] && isset($pricing_data['variation_id'])) {
+            if ($pricing_data['variation_id'] == $product_id) {
+                return $cart_item_key;
+            }
+        } else if (!$pricing_data['is_variation'] && isset($pricing_data['product_id'])) {
+            if ($pricing_data['product_id'] == $product_id) {
+                return $cart_item_key;
+            }
+        }
+    }
+    
+    return null;
+}
+
+function is_cart_or_checkout_context() {
+    // Check if we're in cart, checkout, or AJAX context related to cart
+    if (is_cart() || is_checkout() || is_wc_endpoint_url('order-received')) {
+        return true;
+    }
+    
+    // Check for AJAX actions related to cart/checkout
+    if (wp_doing_ajax()) {
+        $ajax_actions = array(
+            'woocommerce_get_refreshed_fragments',
+            'woocommerce_update_order_review',
+            'woocommerce_checkout',
+            'woocommerce_remove_from_cart',
+            'woocommerce_update_cart'
+        );
+        
+        if (isset($_REQUEST['action']) && in_array($_REQUEST['action'], $ajax_actions)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// Clear external pricing data after order completion
+add_action('woocommerce_thankyou', 'clear_external_pricing_data');
+add_action('woocommerce_cart_emptied', 'clear_external_pricing_data');
+
+function clear_external_pricing_data() {
+    if (WC()->session) {
+        WC()->session->__unset('external_pricing_data');
+        WC()->session->__unset('external_currency');
+        WC()->session->__unset('external_user_data');
+        WC()->session->__unset('source_site');
+    }
+}
+
 
 add_filter('woocommerce_currency', function($currency) {
     if (WC()->session && WC()->session->get('external_currency')) {
