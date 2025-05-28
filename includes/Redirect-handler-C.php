@@ -564,6 +564,7 @@ function prepare_order_data_for_redirect($order) {
         'subtotal' => $order->get_subtotal(),
         'tax_total' => $order->get_total_tax(),
         'shipping_total' => $order->get_shipping_total(),
+        'shipping_method' => $order->get_shipping_method(),
         'currency' => $order->get_currency(),
         'date_created' => $order->get_date_created()->format('Y-m-d H:i:s'),
         'payment_method' => $order->get_payment_method(),
