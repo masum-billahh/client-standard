@@ -8,85 +8,104 @@ function handle_external_cart_data() {
     if (!isset($_POST['cart_data']) || !isset($_POST['redirect_token'])) {
         wp_die('Invalid request');
     }
-    
+
     // Clear existing cart
     WC()->cart->empty_cart();
-    
+
     // Process cart data
     $cart_data = json_decode(stripslashes($_POST['cart_data']), true);
     error_log('Raw cart_data: ' . print_r($_POST['cart_data'], true));
     error_log('Decoded cart_data: ' . print_r($cart_data, true));
-    
+
     if (!empty($cart_data['currency'])) {
         WC()->session->set('external_currency', sanitize_text_field($cart_data['currency']));
     }
-    
+
     // Initialize external pricing data storage
     $external_pricing_data = array();
-    
+
     if (!empty($cart_data) && isset($cart_data['items'])) {
         foreach ($cart_data['items'] as $item) {
             $external_product_id = intval($item['product_id']);
             $quantity = intval($item['quantity']);
             $external_variation_id = isset($item['variation_id']) ? intval($item['variation_id']) : 0;
-            
+
             // Try to find existing product by external ID or SKU
             $local_product_id = find_or_create_product($item, $external_product_id);
-            
+
             if ($local_product_id) {
-                // Handle variations
                 $local_variation_id = 0;
                 if ($external_variation_id > 0 && isset($item['variation_data'])) {
                     $local_variation_id = find_or_create_variation($local_product_id, $item, $external_variation_id);
                 }
-                
-                // Store external pricing data for this cart item
+
                 $cart_item_key = '';
-                
+
                 // Add to cart
                 if ($local_variation_id > 0) {
                     $cart_item_key = WC()->cart->add_to_cart($local_product_id, $quantity, $local_variation_id);
-                    // Store external pricing for variation
-                    $external_pricing_data[$cart_item_key] = array(
-                        'regular_price' => !empty($item['regular_price']) ? floatval($item['regular_price']) : '',
-                        'sale_price' => !empty($item['sale_price']) ? floatval($item['sale_price']) : '',
-                        'price' => !empty($item['meta_data']['line_total']) ? floatval($item['meta_data']['line_total']) : (!empty($item['price']) ? floatval($item['price']) : floatval($item['regular_price'])),
-                        'is_variation' => true,
-                        'variation_id' => $local_variation_id
-                    );
                 } else {
                     $cart_item_key = WC()->cart->add_to_cart($local_product_id, $quantity);
-                    // Store external pricing for simple product
-                    $external_pricing_data[$cart_item_key] = array(
-                        'regular_price' => !empty($item['regular_price']) ? floatval($item['regular_price']) : '',
-                        'sale_price' => !empty($item['sale_price']) ? floatval($item['sale_price']) : '',
-                        'price' => !empty($item['meta_data']['line_total']) ? floatval($item['meta_data']['line_total']) : (!empty($item['price']) ? floatval($item['price']) : floatval($item['regular_price'])),
-                        'is_variation' => false,
-                        'product_id' => $local_product_id
-                    );
                 }
+
+               // Price calculation - Updated logic
+                $base_price = 0;
+                $options_total = 0;
+                
+                // Get base price from available sources
+                if (!empty($item['meta_data']['wapf_item_price']['base'])) {
+                    $base_price = floatval($item['meta_data']['wapf_item_price']['base']);
+                } elseif (!empty($item['meta_data']['base_price'])) {
+                    $base_price = floatval($item['meta_data']['base_price']);
+                } elseif (!empty($item['base_price'])) {
+                    $base_price = floatval($item['base_price']);
+                } elseif (!empty($item['price'])) {
+                    $base_price = floatval($item['price']);
+                } elseif (!empty($item['regular_price'])) {
+                    $base_price = floatval($item['regular_price']);
+                }
+                
+                // Get options total if available
+                if (!empty($item['meta_data']['wapf_item_price']['options_total'])) {
+                    $options_total = floatval($item['meta_data']['wapf_item_price']['options_total']);
+                }
+                
+                // Calculate final price
+                $final_price = $base_price + $options_total;
+                
+                // Store pricing
+                $external_pricing_data[$cart_item_key] = array(
+                    'regular_price' => !empty($item['regular_price']) ? floatval($item['regular_price']) : $base_price,
+                    'sale_price'    => !empty($item['sale_price']) ? floatval($item['sale_price']) : '',
+                    'price'         => $final_price,
+                    'base_price'    => $base_price,
+                    'options_total' => $options_total,
+                    'is_variation'  => ($local_variation_id > 0),
+                    'product_id'    => $local_product_id
+                );
             }
         }
     }
-    
+
     // Store external pricing data in session
     WC()->session->set('external_pricing_data', $external_pricing_data);
-    
+
     // Store user data if provided
     if (isset($_POST['user_data'])) {
         $user_data = json_decode(stripslashes($_POST['user_data']), true);
         WC()->session->set('external_user_data', $user_data);
     }
-    
+
     // Store source site info
     if (isset($_POST['source_site'])) {
         WC()->session->set('source_site', sanitize_text_field($_POST['source_site']));
     }
-    
+
     // Redirect to checkout
     wp_redirect(wc_get_checkout_url());
     exit;
 }
+
 
 // Override product prices in cart with external prices
 add_filter('woocommerce_product_get_price', 'override_external_product_price', 10, 2);
