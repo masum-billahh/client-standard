@@ -50,7 +50,7 @@ function handle_external_cart_data() {
                     $external_pricing_data[$cart_item_key] = array(
                         'regular_price' => !empty($item['regular_price']) ? floatval($item['regular_price']) : '',
                         'sale_price' => !empty($item['sale_price']) ? floatval($item['sale_price']) : '',
-                        'price' => !empty($item['price']) ? floatval($item['price']) : floatval($item['regular_price']),
+                        'price' => !empty($item['meta_data']['line_total']) ? floatval($item['meta_data']['line_total']) : (!empty($item['price']) ? floatval($item['price']) : floatval($item['regular_price'])),
                         'is_variation' => true,
                         'variation_id' => $local_variation_id
                     );
@@ -60,7 +60,7 @@ function handle_external_cart_data() {
                     $external_pricing_data[$cart_item_key] = array(
                         'regular_price' => !empty($item['regular_price']) ? floatval($item['regular_price']) : '',
                         'sale_price' => !empty($item['sale_price']) ? floatval($item['sale_price']) : '',
-                        'price' => !empty($item['price']) ? floatval($item['price']) : floatval($item['regular_price']),
+                        'price' => !empty($item['meta_data']['line_total']) ? floatval($item['meta_data']['line_total']) : (!empty($item['price']) ? floatval($item['price']) : floatval($item['regular_price'])),
                         'is_variation' => false,
                         'product_id' => $local_product_id
                     );
