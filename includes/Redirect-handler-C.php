@@ -56,12 +56,25 @@ function handle_external_cart_data() {
                 // Check if FOX currency converter is active
                 $is_fox_active = is_fox_currency_active();
                 
-                if (!$is_fox_active && !empty($item['meta_data']['line_total'])) {
-                    // FOX is NOT active, use line_total (already converted price)
-                    $final_price = floatval($item['meta_data']['line_total']) / $quantity; // Get per-item price
-                    $base_price = $final_price; // Set base price same as final for consistency
+                if (!$is_fox_active) {
                     
-                    error_log('FOX inactive - Using line_total: ' . $item['meta_data']['line_total'] . ' for quantity: ' . $quantity . ' = per item: ' . $final_price);
+                    
+                    // FOX is NOT active, use line_total (already converted price)
+                   $final_price = floatval($item['meta_data']['line_total']) / $quantity;
+                    $base_price = $final_price;
+                    
+                     // Get options total if available
+                    if (!empty($item['meta_data']['wapf_item_price']['options_total'])) {
+                        $options_total = floatval($item['meta_data']['wapf_item_price']['options_total']);
+                    }
+                    
+                    // Calculate final price
+                    //$final_price = $base_price + $options_total;
+                    
+                    error_log('FOX inactive - Using line_total: ' . $item['meta_data']['line_total'] . 
+                          ' for quantity: ' . $quantity . 
+                          ' = per item: ' . $final_price . 
+                          ' | options_total: ' . $options_total);
                     
                 } else {
                     // FOX is active OR line_total not available, use existing logic
@@ -85,13 +98,14 @@ function handle_external_cart_data() {
                     
                     // Calculate final price
                     $final_price = $base_price + $options_total;
+                    //$final_price = $base_price ;
                     
                     error_log('FOX active or line_total unavailable - Using calculated price: ' . $final_price);
                 }
                 
                 // Store pricing
                 $external_pricing_data[$cart_item_key] = array(
-                    'regular_price' => !empty($item['regular_price']) ? floatval($item['regular_price']) : $base_price,
+                    'regular_price' =>  !empty($item['regular_price']) ? floatval($item['regular_price']) : '',
                     'sale_price'    => !empty($item['sale_price']) ? floatval($item['sale_price']) : '',
                     'price'         => $final_price,
                     'base_price'    => $base_price,
