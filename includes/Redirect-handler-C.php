@@ -48,30 +48,46 @@ function handle_external_cart_data() {
                     $cart_item_key = WC()->cart->add_to_cart($local_product_id, $quantity);
                 }
 
-               // Price calculation - Updated logic
+               // Price calculation - Updated logic with FOX detection
                 $base_price = 0;
                 $options_total = 0;
+                $final_price = 0;
                 
-                // Get base price from available sources
-                if (!empty($item['meta_data']['wapf_item_price']['base'])) {
-                    $base_price = floatval($item['meta_data']['wapf_item_price']['base']);
-                } elseif (!empty($item['meta_data']['base_price'])) {
-                    $base_price = floatval($item['meta_data']['base_price']);
-                } elseif (!empty($item['base_price'])) {
-                    $base_price = floatval($item['base_price']);
-                } elseif (!empty($item['price'])) {
-                    $base_price = floatval($item['price']);
-                } elseif (!empty($item['regular_price'])) {
-                    $base_price = floatval($item['regular_price']);
+                // Check if FOX currency converter is active
+                $is_fox_active = is_fox_currency_active();
+                
+                if (!$is_fox_active && !empty($item['meta_data']['line_total'])) {
+                    // FOX is NOT active, use line_total (already converted price)
+                    $final_price = floatval($item['meta_data']['line_total']) / $quantity; // Get per-item price
+                    $base_price = $final_price; // Set base price same as final for consistency
+                    
+                    error_log('FOX inactive - Using line_total: ' . $item['meta_data']['line_total'] . ' for quantity: ' . $quantity . ' = per item: ' . $final_price);
+                    
+                } else {
+                    // FOX is active OR line_total not available, use existing logic
+                    // Get base price from available sources
+                    if (!empty($item['meta_data']['wapf_item_price']['base'])) {
+                        $base_price = floatval($item['meta_data']['wapf_item_price']['base']);
+                    } elseif (!empty($item['meta_data']['base_price'])) {
+                        $base_price = floatval($item['meta_data']['base_price']);
+                    } elseif (!empty($item['base_price'])) {
+                        $base_price = floatval($item['base_price']);
+                    } elseif (!empty($item['price'])) {
+                        $base_price = floatval($item['price']);
+                    } elseif (!empty($item['regular_price'])) {
+                        $base_price = floatval($item['regular_price']);
+                    }
+                    
+                    // Get options total if available
+                    if (!empty($item['meta_data']['wapf_item_price']['options_total'])) {
+                        $options_total = floatval($item['meta_data']['wapf_item_price']['options_total']);
+                    }
+                    
+                    // Calculate final price
+                    $final_price = $base_price + $options_total;
+                    
+                    error_log('FOX active or line_total unavailable - Using calculated price: ' . $final_price);
                 }
-                
-                // Get options total if available
-                if (!empty($item['meta_data']['wapf_item_price']['options_total'])) {
-                    $options_total = floatval($item['meta_data']['wapf_item_price']['options_total']);
-                }
-                
-                // Calculate final price
-                $final_price = $base_price + $options_total;
                 
                 // Store pricing
                 $external_pricing_data[$cart_item_key] = array(
@@ -81,11 +97,13 @@ function handle_external_cart_data() {
                     'base_price'    => $base_price,
                     'options_total' => $options_total,
                     'is_variation'  => ($local_variation_id > 0),
-                    'product_id'    => $local_product_id
+                    'product_id'    => $local_product_id,
+                    'fox_active'    => $is_fox_active // Store for debugging
                 );
             }
         }
     }
+
 
     // Store external pricing data in session
     WC()->session->set('external_pricing_data', $external_pricing_data);
@@ -116,6 +134,10 @@ add_filter('woocommerce_product_get_sale_price', 'override_external_product_sale
 add_filter('woocommerce_product_variation_get_price', 'override_external_product_price', 10, 2);
 add_filter('woocommerce_product_variation_get_regular_price', 'override_external_product_regular_price', 10, 2);
 add_filter('woocommerce_product_variation_get_sale_price', 'override_external_product_sale_price', 10, 2);
+
+function is_fox_currency_active() {
+    return class_exists('WOOCS_STARTER');
+}
 
 function override_external_product_price($price, $product) {
     // Only override if we have external pricing data and we're in cart/checkout context
