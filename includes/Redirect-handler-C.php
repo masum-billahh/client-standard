@@ -171,7 +171,7 @@ function handle_external_cart_data() {
 add_filter('woocommerce_get_item_data', 'show_all_custom_cart_item_data', 10, 2);
 
 function show_all_custom_cart_item_data($item_data, $cart_item) {
-    $exclude_keys = array('product_id', 'variation_id', 'wapf'); // exclude Woo fields
+    $exclude_keys = array('product_id', 'variation_id', 'wapf', 'key', 'data_hash', 'quantity'); // exclude Woo fields
     $exclude_labels = array(
         'Unique Key',
         'Key',
@@ -183,23 +183,27 @@ function show_all_custom_cart_item_data($item_data, $cart_item) {
         'Line Tax'
     );
 
-    // Handle WAPF fields (structured array)
+    // Handle WAPF fields (structured array) - only if they have actual values
     if (!empty($cart_item['wapf']) && is_array($cart_item['wapf'])) {
         foreach ($cart_item['wapf'] as $field) {
             $label = sanitize_text_field($field['label']);
-            if (!in_array($label, $exclude_labels)) {
+            $value = sanitize_text_field($field['value']);
+            
+            // Only add if both label and value are not empty
+            if (!empty($label) && !empty($value) && !in_array($label, $exclude_labels)) {
                 $item_data[] = array(
-                    'name'  => $label,
-                    'value' => sanitize_text_field($field['value']),
+                    'name'  => $label, // Remove "Wapf" prefix
+                    'value' => $value,
                 );
             }
         }
     }
 
-    // Loop through all custom cart item fields
+    // Loop through all custom cart item fields - only add if they have values
     foreach ($cart_item as $key => $value) {
         if (in_array($key, $exclude_keys)) continue;
         if (is_array($value) || is_object($value)) continue;
+        if (empty($value)) continue; // Skip empty values
 
         $label = ucwords(str_replace('_', ' ', $key));
         if (in_array($label, $exclude_labels)) continue;
@@ -215,42 +219,64 @@ function show_all_custom_cart_item_data($item_data, $cart_item) {
 
 
 //testing
+
+
 add_action('woocommerce_checkout_create_order_line_item', 'save_custom_cart_data_to_order_item', 10, 4);
 
 function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $order) {
-    $exclude_keys = array('product_id', 'variation_id', 'key', 'data_hash', 'line_subtotal', 'line_subtotal_tax', 'line_total', 'line_tax');
+    $exclude_keys = array(
+        'product_id', 
+        'variation_id', 
+        'key', 
+        'data_hash', 
+        'line_subtotal', 
+        'line_subtotal_tax', 
+        'line_total', 
+        'line_tax',
+        'quantity' // Add quantity to exclude list
+    );
     
-    // Save WAPF fields if present
+    // Save WAPF fields if present - only if they have actual values
     if (!empty($values['wapf']) && is_array($values['wapf'])) {
         foreach ($values['wapf'] as $index => $field) {
             if (!empty($field['label']) && !empty($field['value'])) {
-                $item->add_meta_data('wapf_' . sanitize_key($field['label']), sanitize_text_field($field['value']));
+                // Save with clean label (no "wapf_" prefix)
+                $clean_label = sanitize_text_field($field['label']);
+                $item->add_meta_data($clean_label, sanitize_text_field($field['value']));
             }
         }
-        // Also save the full WAPF data structure
-        $item->add_meta_data('_wapf_data', $values['wapf']);
+        // Don't save the full WAPF data structure to avoid duplication
     }
     
-    // Save other custom fields
+    // Save other custom fields - only if they have values
     foreach ($values as $key => $value) {
         if (in_array($key, $exclude_keys)) continue;
         if ($key === 'wapf') continue; // Already handled above
         if (is_array($value) || is_object($value)) continue;
         if (strpos($key, 'cost') !== false) continue; // Skip cost fields
+        if (empty($value)) continue; // Skip empty values
         
-        // Save the custom field
-        $meta_key = '_custom_' . sanitize_key($key);
-        $item->add_meta_data($meta_key, sanitize_text_field($value));
-        
-        // Also save it with a display-friendly key for order display
+        // Save with display-friendly key
         $display_key = ucwords(str_replace('_', ' ', $key));
         $item->add_meta_data($display_key, sanitize_text_field($value));
     }
 }
 
-// Hook to display custom data in order items (backend and frontend)
 add_filter('woocommerce_order_item_display_meta_key', 'customize_order_item_meta_key_display', 10, 3);
 function customize_order_item_meta_key_display($display_key, $meta, $item) {
+    // Hide certain meta keys from display
+    $hidden_keys = array(
+        'Unique Key',
+        'Key', 
+        'Quantity',
+        'Data Hash',
+        '_wapf_data'
+    );
+    
+    if (in_array($display_key, $hidden_keys)) {
+        return false; // Hide this meta key
+    }
+    
     // Clean up display of custom fields
     if (strpos($display_key, '_custom_') === 0) {
         return ucwords(str_replace(array('_custom_', '_'), array('', ' '), $display_key));
@@ -258,7 +284,27 @@ function customize_order_item_meta_key_display($display_key, $meta, $item) {
     if (strpos($display_key, 'wapf_') === 0) {
         return str_replace('wapf_', '', ucwords(str_replace('_', ' ', $display_key)));
     }
+    
     return $display_key;
+}
+
+// Add this new filter to hide unwanted meta from order item display
+add_filter('woocommerce_order_item_display_meta_value', 'hide_unwanted_order_meta', 10, 3);
+function hide_unwanted_order_meta($display_value, $meta, $item) {
+    // List of meta keys to hide completely
+    $hidden_keys = array(
+        'Unique Key',
+        'Key',
+        'Quantity', 
+        'Data Hash',
+        '_wapf_data'
+    );
+    
+    if (in_array($meta->key, $hidden_keys)) {
+        return false; // Don't display this meta
+    }
+    
+    return $display_value;
 }
 
 //testing//////////////////////////////////////////////////
@@ -788,6 +834,22 @@ function prepare_order_data_for_redirect($order) {
             $external_variation_id = get_post_meta($item->get_variation_id(), '_external_variation_id', true);
         }
         
+        // Get all item meta data (including custom fields and WAPF data)
+        $item_meta = array();
+        $meta_data = $item->get_meta_data();
+        
+       foreach ($meta_data as $meta) {
+        $key = $meta->get_data()['key'];
+        $value = $meta->get_data()['value'];
+    
+        // Skip internal WooCommerce meta and keys containing "key"
+        if (strpos($key, '_') === 0 || stripos($key, 'key') !== false) continue;
+    
+        // Include all custom fields
+        $item_meta[$key] = $value;
+    }
+
+        
         $order_data['items'][] = array(
             'name' => $item->get_name(),
             'quantity' => $item->get_quantity(),
@@ -795,6 +857,8 @@ function prepare_order_data_for_redirect($order) {
             'external_product_id' => $external_product_id,
             'external_variation_id' => $external_variation_id,
             'sku' => $product ? $product->get_sku() : '',
+            'custom_fields' => $item_meta,
+            'item_id' => $item->get_id()
         );
     }
     
