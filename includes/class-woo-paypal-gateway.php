@@ -434,7 +434,7 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
     return $seller_protection;
     }
     
-    public function add_mobile_detection_script() {
+ public function add_mobile_detection_script() {
         
     if ($this->get_option('mobile_only') !== 'yes') {
         return;
@@ -452,7 +452,8 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
         .find(row => row.startsWith('wpppc_is_real_mobile='));
     
     // Detect if this is a real mobile device
-    const isRealMobile = navigator.maxTouchPoints > 1;
+    //const isRealMobile = navigator.maxTouchPoints > 2;
+	const isRealMobile = navigator.maxTouchPoints > 2 && window.innerWidth <= 768;
     
     // Set the cookie regardless
     document.cookie = "wpppc_is_real_mobile=" + (isRealMobile ? "1" : "0") + 

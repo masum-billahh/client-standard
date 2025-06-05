@@ -60,7 +60,6 @@ function wpppc_init() {
         return;
     }
     
-    
     // Load required files - make sure server manager comes first
     require_once WPPPC_PLUGIN_DIR . 'includes/class-server-manager.php';
     require_once WPPPC_PLUGIN_DIR . 'includes/class-api-handler.php';
@@ -71,9 +70,6 @@ function wpppc_init() {
     require_once WPPPC_PLUGIN_DIR . 'includes/class-express-checkout.php';
     require_once WPPPC_PLUGIN_DIR . 'includes/class-paypal-standard-proxy-gateway.php';
 require_once WPPPC_PLUGIN_DIR . 'includes/class-standard-proxy-client.php';
-
-//plugin C file
-require_once WPPPC_PLUGIN_DIR . 'includes/Redirect-handler-C.php';
 
 // Initialize standard proxy
 $standard_proxy = new WPPPC_Standard_Proxy_Client();
@@ -1427,8 +1423,6 @@ function wpppc_check_order_status() {
     
     wp_send_json_success(array('refresh' => $refresh));
 }
-
-
 
 
 /**

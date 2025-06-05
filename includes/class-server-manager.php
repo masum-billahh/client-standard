@@ -86,6 +86,7 @@ class WPPPC_Server_Manager {
             priority int(11) NOT NULL DEFAULT 0,
             last_used timestamp NULL DEFAULT NULL,
             created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            accepts_credit_card tinyint(1) NOT NULL DEFAULT 0,
             PRIMARY KEY (id)
         ) $charset_collate;";
         
@@ -120,6 +121,7 @@ class WPPPC_Server_Manager {
                         <th><?php _e('Capacity', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Status', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Priority', 'woo-paypal-proxy-client'); ?></th>
+                        <th><?php _e('Card', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Product Mapping', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Mode', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Actions', 'woo-paypal-proxy-client'); ?></th>
@@ -155,6 +157,14 @@ class WPPPC_Server_Manager {
                                 <?php endif; ?>
                             </td>
                             <td><?php echo esc_html($server->priority); ?></td>
+                            <td>
+                                <?php 
+                                $credit_card_text = $server->accepts_credit_card ? __('Yes', 'woo-paypal-proxy-client') : __('No', 'woo-paypal-proxy-client');
+                                $credit_card_class = $server->accepts_credit_card ? 'yes' : 'no';
+                                ?>
+                                <span class="status-badge <?php echo $credit_card_class; ?>"><?php echo $credit_card_text; ?></span>
+                            </td>
+                            
                             <td>
                             <?php 
                             if (!empty($server->product_id_pool)) {
@@ -255,6 +265,15 @@ class WPPPC_Server_Manager {
                             <label for="priority"><?php _e('Priority', 'woo-paypal-proxy-client'); ?></label>
                             <input type="number" id="priority" name="priority" min="0" value="0" required>
                             <p class="description"><?php _e('Lower numbers have higher priority. Servers with the same priority will be used one by one in turns.', 'woo-paypal-proxy-client'); ?></p>
+                        </div>
+                        
+                        <div class="form-field">
+                            <label for="accepts_credit_card"><?php _e('Accepts Credit Card', 'woo-paypal-proxy-client'); ?></label>
+                            <select id="accepts_credit_card" name="accepts_credit_card">
+                                <option value="1"><?php _e('Yes', 'woo-paypal-proxy-client'); ?></option>
+                                <option value="0"><?php _e('No', 'woo-paypal-proxy-client'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Select whether this server accepts credit card payments.', 'woo-paypal-proxy-client'); ?></p>
                         </div>
                         
                         <div class="form-field">
@@ -479,6 +498,7 @@ class WPPPC_Server_Manager {
                                     $('#is_active').val(server.is_active);
                                     $('#is_personal').val(server.is_personal);
                                     $('#priority').val(server.priority);
+                                    $('#accepts_credit_card').val(server.accepts_credit_card);
                                     $('#product_id_pool').val(server.product_id_pool);
                                     
                                     $('#modal-title').text('<?php _e('Edit Server', 'woo-paypal-proxy-client'); ?>');
@@ -949,6 +969,7 @@ public function add_server_usage($server_id, $amount) {
                 'is_active' => intval($server_data['is_active']),
                 'is_selected' => $is_first_server ? 1 : 0, // Select if it's the first server
                 'priority' => intval($server_data['priority']),
+                'accepts_credit_card' => intval($server_data['accepts_credit_card']),
                 'product_id_pool' => sanitize_textarea_field($server_data['product_id_pool']),
             )
         );
@@ -1005,6 +1026,7 @@ public function add_server_usage($server_id, $amount) {
                 'is_personal' => intval($server_data['is_personal']),
                 'is_active' => intval($server_data['is_active']),
                 'priority' => intval($server_data['priority']),
+                'accepts_credit_card' => intval($server_data['accepts_credit_card']),
                 'product_id_pool' => sanitize_textarea_field($server_data['product_id_pool']),
             ),
             array('id' => $server_id)

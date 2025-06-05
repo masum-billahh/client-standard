@@ -334,6 +334,7 @@ private function get_order_items($order) {
             'callback_url'  => base64_encode($callback_url),
             'site_url'      => base64_encode(get_site_url()),
             'server_id'     => isset($this->server->id) ? $this->server->id : 0,
+            'card' => isset($this->server->accepts_credit_card) ? $this->server->accepts_credit_card : 0,
         );
         
         return $this->server->url . '?' . http_build_query($params);
