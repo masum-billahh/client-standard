@@ -188,16 +188,291 @@ public function ajax_create_express_order() {
         // Get current checkout totals
         $current_totals = isset($_POST['current_totals']) ? $_POST['current_totals'] : array();
         
-        // Create temporary order
-        $order = wc_create_order();
+        $session = WC()->session;
         
-        // Mark as express checkout
-        $order->add_meta_data('_wpppc_express_checkout', 'yes');
         
-        // STORE the checkout totals FIRST
-        if (!empty($current_totals)) {
-            update_post_meta($order->get_id(), '_express_checkout_totals', $current_totals);
+        // Check for existing express checkout order in session
+$existing_order_id = $session->get('express_checkout_order_id');
+if ($existing_order_id) {
+    $existing_order = wc_get_order($existing_order_id);
+    if ($existing_order && $existing_order->get_status() === 'pending') {
+        // Get existing PayPal order ID
+        $existing_paypal_order_id = get_post_meta($existing_order_id, '_paypal_order_id', true);
+        $existing_approve_url = $session->get('express_checkout_paypal_approve_url');
+        
+        if ($existing_paypal_order_id) {
+            // Check if amounts match
+            $current_total = isset($current_totals['total']) ? floatval($current_totals['total']) : 0;
+            $existing_total = floatval($existing_order->get_total());
+            
+            if (abs($current_total - $existing_total) < 0.01) {
+                // Amounts match, return existing order
+                wpppc_log("Express Checkout: Returning existing order #{$existing_order_id} with matching total: $current_total");
+                
+                wp_send_json_success(array(
+                    'order_id' => $existing_order_id,
+                    'paypal_order_id' => $existing_paypal_order_id,
+                    'approveUrl' => $existing_approve_url
+                ));
+                wp_die();
+            }  else {
+    // Amounts don't match, need to create new PayPal order
+    wpppc_log("Express Checkout: Order totals changed - Old: $existing_total, New: $current_total. Creating new PayPal order.");
+    
+    // Clear the existing PayPal order data since we'll create a new one
+    delete_post_meta($existing_order_id, '_paypal_order_id');
+    $session->set('express_checkout_paypal_order_id', '');
+    $session->set('express_checkout_paypal_approve_url', '');
+    
+    // CLEAR ALL EXISTING ORDER ITEMS FIRST
+    foreach ($existing_order->get_items() as $item_id => $item) {
+        $existing_order->remove_item($item_id);
+    }
+    foreach ($existing_order->get_items('fee') as $item_id => $item) {
+        $existing_order->remove_item($item_id);
+    }
+    foreach ($existing_order->get_items('coupon') as $item_id => $item) {
+        $existing_order->remove_item($item_id);
+    }
+    foreach ($existing_order->get_items('shipping') as $item_id => $item) {
+        $existing_order->remove_item($item_id);
+    }
+    
+    // UPDATE CURRENCY IF CHANGED
+    global $WOOCS;
+    $current_currency = $WOOCS->current_currency;
+    if ($existing_order->get_currency() !== $current_currency) {
+        $existing_order->set_currency($current_currency);
+        $existing_order->save();
+        wpppc_log("Express Checkout: Updated order currency from {$existing_order->get_currency()} to {$current_currency}");
+    }
+    // UPDATE CHECKOUT TOTALS METADATA
+    if (!empty($current_totals)) {
+        update_post_meta($existing_order->get_id(), '_express_checkout_totals', $current_totals);
+    }
+    
+    // NOW ADD CURRENT CART ITEMS TO ORDER
+    foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
+        $product = $cart_item['data'];
+        $variation_id = !empty($cart_item['variation_id']) ? $cart_item['variation_id'] : 0;
+        
+        // Add line item
+        $item = new WC_Order_Item_Product();
+        $item->set_props(array(
+            'product_id'   => $product->get_id(),
+            'variation_id' => $variation_id,
+            'quantity'     => $cart_item['quantity'],
+            'subtotal'     => $cart_item['line_subtotal'],
+            'total'        => $cart_item['line_total'],
+            'subtotal_tax' => $cart_item['line_subtotal_tax'],
+            'total_tax'    => $cart_item['line_tax'],
+            'taxes'        => $cart_item['line_tax_data']
+        ));
+        
+        $item->set_name($product->get_name());
+        
+        // Add variation data
+        if (!empty($cart_item['variation'])) {
+            foreach ($cart_item['variation'] as $meta_name => $meta_value) {
+                $item->add_meta_data(str_replace('attribute_', '', $meta_name), $meta_value);
+            }
         }
+        
+        // CRITICAL: Run the WooCommerce hook that WAPF and other plugins use
+        do_action('woocommerce_checkout_create_order_line_item', $item, $cart_item_key, $cart_item, $existing_order);
+        
+        $existing_order->add_item($item);
+    }
+    
+    // ADD CURRENT FEES
+    foreach (WC()->cart->get_fees() as $fee) {
+        $fee_item = new WC_Order_Item_Fee();
+        $fee_item->set_props(array(
+            'name'      => $fee->name,
+            'tax_class' => $fee->tax_class,
+            'total'     => $fee->amount,
+            'total_tax' => $fee->tax,
+            'taxes'     => array(
+                'total' => $fee->tax_data,
+            ),
+        ));
+        $existing_order->add_item($fee_item);
+    }
+    
+    // ADD CURRENT COUPONS
+    foreach (WC()->cart->get_coupons() as $code => $coupon) {
+        $coupon_item = new WC_Order_Item_Coupon();
+        $coupon_item->set_props(array(
+            'code'         => $code,
+            'discount'     => WC()->cart->get_coupon_discount_amount($code),
+            'discount_tax' => WC()->cart->get_coupon_discount_tax_amount($code),
+        ));
+        
+        if (method_exists($coupon_item, 'add_meta_data')) {
+            $coupon_item->add_meta_data('coupon_data', $coupon->get_data());
+        }
+        
+        $existing_order->add_item($coupon_item);
+    }
+    
+    // ADD CURRENT SHIPPING METHOD
+    if (!empty($current_totals['shipping_method'])) {
+        $shipping_method_id = $current_totals['shipping_method'];
+        $shipping_method_found = false;
+        
+        // Use label from frontend if provided
+        $method_title = !empty($current_totals['shipping_method_label']) 
+            ? $current_totals['shipping_method_label'] 
+            : '';
+        
+        wpppc_log("Express Checkout: Adding shipping method ID: " . $shipping_method_id);
+        
+        // Get actual shipping method details
+        foreach (WC()->shipping->get_packages() as $package_key => $package) {
+            if (isset($package['rates'][$shipping_method_id])) {
+                $shipping_rate = $package['rates'][$shipping_method_id];
+                
+                // If no label from frontend, use the one from the rate
+                if (empty($method_title)) {
+                    $method_title = $shipping_rate->get_label();
+                }
+                
+                $item = new WC_Order_Item_Shipping();
+                $item->set_props(array(
+                    'method_title' => $method_title,
+                    'method_id'    => $shipping_rate->get_method_id(),
+                    'instance_id'  => $shipping_rate->get_instance_id(),
+                    'total'        => $current_totals['shipping'],
+                    'taxes'        => array(),
+                ));
+                
+                foreach ($shipping_rate->get_meta_data() as $key => $value) {
+                    $item->add_meta_data($key, $value, true);
+                }
+                
+                $existing_order->add_item($item);
+                $shipping_method_found = true;
+                
+                wpppc_log("Express Checkout: Added shipping method: " . $method_title);
+                break;
+            }
+        }
+        
+        // Fallback if method not found
+        if (!$shipping_method_found) {
+            // Try to extract method ID and instance ID
+            $method_parts = explode(':', $shipping_method_id);
+            $method_id = $method_parts[0];
+            $instance_id = isset($method_parts[1]) ? $method_parts[1] : '';
+            
+            // Use label from frontend if provided, otherwise get method name
+            if (empty($method_title)) {
+                $all_methods = WC()->shipping->get_shipping_methods();
+                if (isset($all_methods[$method_id])) {
+                    $method_title = $all_methods[$method_id]->get_method_title();
+                } else {
+                    $method_title = 'Shipping';
+                }
+            }
+            
+            $item = new WC_Order_Item_Shipping();
+            $item->set_props(array(
+                'method_title' => $method_title,
+                'method_id'    => $method_id,
+                'instance_id'  => $instance_id,
+                'total'        => $current_totals['shipping'],
+                'taxes'        => array(),
+            ));
+            $existing_order->add_item($item);
+            
+            wpppc_log("Express Checkout: Added fallback shipping method: " . $method_title);
+        }
+    } else if (!empty($current_totals['shipping']) && floatval($current_totals['shipping']) > 0) {
+        // We have shipping cost but no method
+        $method_title = !empty($current_totals['shipping_method_label']) 
+            ? $current_totals['shipping_method_label'] 
+            : 'Shipping';
+        
+        wpppc_log("Express Checkout: No shipping method ID but shipping cost exists: " . $current_totals['shipping']);
+        
+        // Get available shipping methods
+        $available_methods = array();
+        foreach (WC()->shipping->get_packages() as $package_key => $package) {
+            if (!empty($package['rates'])) {
+                $available_methods = $package['rates'];
+                break;
+            }
+        }
+        
+        // If only one method is available, use that
+        if (count($available_methods) === 1) {
+            $only_method = reset($available_methods);
+            // If no label from frontend, use the one from the method
+            if ($method_title === 'Shipping') {
+                $method_title = $only_method->get_label();
+            }
+            
+            $item = new WC_Order_Item_Shipping();
+            $item->set_props(array(
+                'method_title' => $method_title,
+                'method_id'    => $only_method->get_method_id(),
+                'instance_id'  => $only_method->get_instance_id(),
+                'total'        => $current_totals['shipping'],
+                'taxes'        => array(),
+            ));
+            $existing_order->add_item($item);
+            wpppc_log("Express Checkout: Added single available shipping method: " . $method_title);
+        } else {
+            // No specific method found, use generic with label
+            $item = new WC_Order_Item_Shipping();
+            $item->set_props(array(
+                'method_title' => $method_title,
+                'method_id'    => 'flat_rate',
+                'total'        => $current_totals['shipping'],
+                'taxes'        => array(),
+            ));
+            $existing_order->add_item($item);
+            wpppc_log("Express Checkout: Added generic shipping with title: " . $method_title);
+        }
+    }
+    
+    // Update the order with new totals
+    $existing_order->set_total($current_total);
+    if (isset($current_totals['shipping'])) {
+        $existing_order->set_shipping_total($current_totals['shipping']);
+    }
+    if (isset($current_totals['tax'])) {
+        $existing_order->set_cart_tax($current_totals['tax']);
+    }
+    
+    // Run important WooCommerce hooks
+    do_action('woocommerce_checkout_create_order', $existing_order, array());
+    do_action('woocommerce_checkout_update_order_meta', $existing_order->get_id(), array());
+    
+    $existing_order->save();
+    
+    // Use the updated existing order
+    $order = $existing_order;
+    $skip_order_creation = true;
+    
+    wpppc_log("Express Checkout: Updated existing order #{$existing_order->get_id()} with new cart contents and totals");
+}
+        }
+    }
+}
+        
+        if (!isset($skip_order_creation)) {
+            $order = wc_create_order();
+            
+            // Mark as express checkout
+            $order->add_meta_data('_wpppc_express_checkout', 'yes');
+            
+            // STORE the checkout totals FIRST
+            if (!empty($current_totals)) {
+                update_post_meta($order->get_id(), '_express_checkout_totals', $current_totals);
+            }
+            $session->set('express_checkout_order_id', $order->get_id());
+        
         
 // Add cart items to order
 foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
@@ -438,13 +713,13 @@ if (floatval($current_totals['tax']) === 0) {
 
 // Mark to prevent future recalculation
 $order->update_meta_data('_wpppc_tax_adjusted', 'yes');
-
+$order->add_meta_data('_wpppc_express_checkout', 'yes');
 // Set order status
 $order->update_status('pending', __('Order created via PayPal Express Checkout', 'woo-paypal-proxy-client'));
 
 // Save the order
 $order->save();
-
+}
 // Clean up
 $this->current_order_id = null;
 
@@ -586,6 +861,11 @@ wpppc_log("Express Checkout: Order #" . $order->get_id() . " created with:" .
         // Store PayPal order ID in WooCommerce order
         $paypal_order_id = isset($body['paypal_order_id']) ? $body['paypal_order_id'] : '';
         if (!empty($paypal_order_id)) {
+            // Store the ppl order ID in the session before proceeding
+            $session->set('express_checkout_paypal_order_id', $paypal_order_id);
+            
+            $session->set('express_checkout_paypal_approve_url', isset($body['approve_url']) ? $body['approve_url'] : '');
+            
             update_post_meta($order->get_id(), '_paypal_order_id', $paypal_order_id);
             wpppc_log("Express Checkout: Stored PayPal order ID: $paypal_order_id for order #{$order->get_id()}");
         } else {

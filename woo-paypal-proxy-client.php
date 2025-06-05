@@ -1425,6 +1425,30 @@ function wpppc_check_order_status() {
 }
 
 
+//delete abandoned express orders after an hour
+if (!wp_next_scheduled('delete_expired_express_checkout_orders')) {
+    wp_schedule_event(time(), 'hourly', 'delete_expired_express_checkout_orders');
+}
+
+add_action('delete_expired_express_checkout_orders', 'delete_old_express_checkout_orders');
+
+function delete_old_express_checkout_orders() {
+    $args = array(
+        'limit'        => -1,
+        'status'       => 'pending',
+        'meta_key'     => '_wpppc_express_checkout',
+        'meta_value'   => 'yes',
+        'date_created' => '<' . (new DateTime('-1 hour'))->format('Y-m-d H:i:s'),
+    );
+
+    $orders = wc_get_orders($args);
+
+    foreach ($orders as $order) {
+        wp_delete_post($order->get_id(), true); // true = force delete (bypass trash)
+    }
+}
+
+
 /**
  * Plugin deactivation hook
  */
