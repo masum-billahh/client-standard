@@ -951,7 +951,35 @@ public function add_server_usage($server_id, $amount) {
             wp_die();
         }
         
-         
+         $product_ids = array_map('intval', explode(',', $server_data['product_id_pool']));
+		$url = $server_data['server_url'];
+		$response = wp_remote_post($url . '/wp-json/wppps/v1/check-products', [
+			'body' => json_encode(['ids' => $product_ids]),
+			'headers' => ['Content-Type' => 'application/json'],
+			'timeout' => 15,
+		]);
+		
+		if (is_wp_error($response)) {
+			$error_message = $response->get_error_message();
+			error_log("API Request Failed: $error_message");
+			echo "Something went wrong: $error_message";
+		} else {
+			$body = json_decode(wp_remote_retrieve_body($response), true);
+			error_log("API Response: " . print_r($body, true));
+
+			$missing_ids = [];
+			foreach ($body as $id => $exists) {
+				if (!$exists) {
+					$missing_ids[] = $id;
+				}
+			}
+
+			if (!empty($missing_ids)) {
+				$msg = 'The following product ID(s) do not exist on the server: ' . implode(', ', $missing_ids);
+				wp_send_json_error(array('message' => $msg));
+				wp_die();
+			}
+		}
         
         global $wpdb;
         $count = $wpdb->get_var("SELECT COUNT(*) FROM {$this->table_name}");
@@ -1009,6 +1037,38 @@ public function add_server_usage($server_id, $amount) {
             wp_send_json_error(array('message' => 'All fields are required'));
             wp_die();
         }
+		
+		$product_ids = array_map('intval', explode(',', $server_data['product_id_pool']));
+		$url = $server_data['server_url'];
+		$response = wp_remote_post($url . '/wp-json/wppps/v1/check-products', [
+			'body' => json_encode(['ids' => $product_ids]),
+			'headers' => ['Content-Type' => 'application/json'],
+			'timeout' => 15,
+		]);
+		
+		if (is_wp_error($response)) {
+			$error_message = $response->get_error_message();
+			error_log("API Request Failed: $error_message");
+			echo "Something went wrong: $error_message";
+		} else {
+			$body = json_decode(wp_remote_retrieve_body($response), true);
+			error_log("API Response: " . print_r($body, true));
+
+			$missing_ids = [];
+			foreach ($body as $id => $exists) {
+				if (!$exists) {
+					$missing_ids[] = $id;
+				}
+			}
+
+			if (!empty($missing_ids)) {
+				$msg = 'The following product ID(s) do not exist on the server: ' . implode(', ', $missing_ids);
+				wp_send_json_error(array('message' => $msg));
+				wp_die();
+			}
+		}
+
+		
         
         global $wpdb;
         
