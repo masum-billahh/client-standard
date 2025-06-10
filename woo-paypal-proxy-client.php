@@ -1180,6 +1180,7 @@ function add_seller_protection_column_hpos($columns) {
         if ($key === 'wc_actions') {
             $new_columns['seller_protection'] = __('Seller Protection', 'woo-paypal-proxy-client');
             $new_columns['paypal_account_status'] = __('Account Status', 'woo-paypal-proxy-client');
+            $new_columns['gateway'] = __('Gateway', 'woo-paypal-proxy-client');
         }
         $new_columns[$key] = $value;
     }
@@ -1191,6 +1192,8 @@ function display_seller_protection_column_hpos($column, $order) {
         display_seller_protection_status($order);
     } elseif ($column === 'paypal_account_status') {
         display_paypal_account_status($order);
+    }elseif ($column === 'gateway') {
+        display_gateway_status($order);
     }
 }
 
@@ -1201,6 +1204,7 @@ function add_seller_protection_column_traditional($columns) {
         if ($key === 'order_actions') {
             $new_columns['seller_protection'] = __('Seller Protection', 'woo-paypal-proxy-client');
             $new_columns['paypal_account_status'] = __('Account Status', 'woo-paypal-proxy-client');
+            $new_columns['gateway'] = __('Gateway', 'woo-paypal-proxy-client');
         }
         $new_columns[$key] = $value;
     }
@@ -1217,6 +1221,37 @@ function display_seller_protection_column_traditional($column, $post_id) {
         $order = wc_get_order($post_id);
         if ($order) {
             display_paypal_account_status($order);
+        }
+    }
+    elseif ($column === 'gateway') {
+        $order = wc_get_order($post_id);
+        if ($order) {
+            display_gateway_status($order);
+        }
+    }
+}
+function display_gateway_status($order) {
+    // First try to get from order meta
+    $gateway_source = $order->get_meta('_wpppc_funding_source', true);
+    
+    // If empty, try different method
+    if (empty($gateway_source) && is_callable(array($order, 'get_id'))) {
+        $gateway_source = get_post_meta($order->get_id(), '_wpppc_funding_source', true);
+    }
+    
+    if (!empty($gateway_source)) {
+        echo '<span class="gateway-source">' . esc_html($gateway_source) . '</span>';
+    } else {
+        // Check if this order was paid with PayPal
+        $payment_method = $order->get_payment_method();
+        $paypal_order_id = $order->get_meta('_paypal_order_id', true);
+        
+        if (($payment_method === 'paypal_proxy' || $payment_method === 'paypal_direct') && !empty($paypal_order_id)) {
+            // This is a PayPal order but without gateway data
+            echo '<span class="gateway-missing">' . esc_html__('Not found', 'woo-paypal-proxy-client') . '</span>';
+        } else {
+            // Not a PayPal order
+            echo '<span class="gateway-na">—</span>';
         }
     }
 }
@@ -1555,6 +1590,28 @@ function delete_old_express_checkout_orders() {
         wp_delete_post($order->get_id(), true); // true = force delete (bypass trash)
     }
 }
+
+//add card_details to orders
+add_action('wp_ajax_wpppc_source_card', 'handle_source_card');
+add_action('wp_ajax_nopriv_wpppc_source_card', 'handle_source_card');
+
+function handle_source_card() {
+    check_ajax_referer('wpppc-nonce', 'nonce');
+    
+    $order_id = intval($_POST['order_id'] ?? 0);
+    $source = sanitize_text_field($_POST['funding_source'] ?? '');
+    
+    error_log('Received order_id: ' . $order_id);
+    error_log('Received funding_source: ' . $source);
+    
+    if ($order_id && !empty($source)) {
+        update_post_meta($order_id, '_wpppc_funding_source', $source);
+        wp_send_json_success('Funding source saved: ' . $source);
+    }
+    
+    wp_send_json_error('Missing or invalid data');
+}
+
 
 
 /**

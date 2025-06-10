@@ -206,6 +206,8 @@ public function checkout_order_processed($order_id, $posted_data, $order) {
     // Store server ID in order
     update_post_meta($order_id, '_wpppc_server_id', $server->id);
     
+    update_post_meta($order->get_id(), '_wpppc_funding_source', 'Standard');
+    
        
     
     // Generate security token

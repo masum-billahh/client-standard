@@ -25,6 +25,7 @@
     var creatingOrder = false;
     var orderCreated = false;
     var orderID = null;
+    var fundingSource = null;
     
     // Store error messages
     var errorMessages = {};
@@ -102,6 +103,9 @@
                 break;
                 
             case 'button_clicked':
+                if (data.fundingSource) {
+                    fundingSource = data.fundingSource;
+                }
                 handlePayPalButtonClick();
                 break;
                 
@@ -116,7 +120,7 @@
             case 'payment_error':
                 handlePaymentError(data.error);
                 break;
-                
+               
             case 'expand_iframe':
                 $('#paypal-proxy-iframe').addClass('paypal-iframe-expanded');
                 break;
@@ -156,7 +160,7 @@ function handlePayPalButtonClick() {
             sendMessageToIframe({
                 action: 'order_creation_failed',
                 errors: validationResult.errors,
-                isValidationError: true, // Add this flag
+                isValidationError: true, 
                 message: 'Validation failed'
             });
             
@@ -171,6 +175,24 @@ function handlePayPalButtonClick() {
             orderID = orderData.order_id;
             orderCreated = true;
             creatingOrder = false;
+            
+            // Send funding source directly to PHP
+            $.ajax({
+                type: 'POST',
+                url: wpppc_params.ajax_url,
+                data: {
+                    action: 'wpppc_source_card',
+                    nonce: wpppc_params.nonce,
+                    order_id: orderID,
+                    funding_source: fundingSource
+                },
+                success: function(response) {
+                    console.log('Funding source saved:', response);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Failed to save funding source:', error);
+                }
+            });
             
             // Send message to iframe with order info
             sendMessageToIframe({
@@ -196,6 +218,42 @@ function handlePayPalButtonClick() {
         });
     }).catch(function(error) {
         creatingOrder = false;
+    });
+}
+
+
+function send_source_card_to_php() {
+    if (!orderID) {
+        console.error('No order ID available');
+        return Promise.reject('No order ID available');
+    }
+
+    // Check if wpppc_params exists
+    if (typeof wpppc_params === 'undefined') {
+        console.error('wpppc_params not defined');
+        return Promise.reject('AJAX parameters not available');
+    }
+
+    return new Promise(function(resolve, reject) {
+        $.ajax({
+            type: 'POST',
+            url: wpppc_params.ajax_url,
+            data: {
+                action: 'wpppc_source_card',
+                nonce: wpppc_params.nonce,
+                order_id: orderID,
+                funding_source: 'card'
+            },
+            success: function(response) {
+                console.log('PHP response:', response);
+                resolve(response);
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', error);
+                console.error('Response:', xhr.responseText);
+                reject(error);
+            }
+        });
     });
 }
 
@@ -327,7 +385,7 @@ function handlePayPalButtonClick() {
         console.log('Using server ID from proxy_data:', serverId);
     }
     
-    // Complete the payment directly from Website A (not from the iframe)
+    // Complete the payment directly from Website A
     $.ajax({
         type: 'POST',
         url: wpppc_params.ajax_url,

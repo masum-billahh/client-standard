@@ -467,6 +467,8 @@ if ($existing_order_id) {
             // Mark as express checkout
             $order->add_meta_data('_wpppc_express_checkout', 'yes');
             
+            update_post_meta($order->get_id(), '_wpppc_funding_source', 'Express');
+            
             // STORE the checkout totals FIRST
             if (!empty($current_totals)) {
                 update_post_meta($order->get_id(), '_express_checkout_totals', $current_totals);
