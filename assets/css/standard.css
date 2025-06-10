@@ -1,0 +1,44 @@
+/* PayPal Button Styling */
+#wpppc-paypal-button {
+    text-align: center;
+    
+}
+
+#wpppc-paypal-btn-img {
+    width: 600px;
+    height: auto;
+    border: none;
+    border-radius: 4px;
+    transition: opacity 0.3s ease, transform 0.2s ease;
+}
+
+/* Hide the default place order button when PayPal is selected */
+body.woocommerce-checkout #place_order.wpppc-hidden {
+    display: none !important;
+}
+
+/* Ensure PayPal button container is properly positioned */
+#wpppc-paypal-button {
+    position: relative;
+    z-index: 1;
+}
+
+
+.woocommerce-checkout #wpppc-paypal-button {
+    margin-bottom: 1em;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    #wpppc-paypal-btn-img {
+        max-width: 100%;
+        width: 100%;
+    }
+}
+
+/* Loading state styling */
+#wpppc-paypal-btn-img.loading {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}

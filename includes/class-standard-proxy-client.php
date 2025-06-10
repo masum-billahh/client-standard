@@ -22,6 +22,10 @@ class WPPPC_Standard_Proxy_Client {
         
         // Alter available payment gateways based on settings
         add_filter('woocommerce_available_payment_gateways', array($this, 'manage_payment_gateways'));
+		
+		 // ppl custom button handling
+		add_action('wp_enqueue_scripts', array($this, 'enqueue_checkout_scripts'));
+    	add_action('woocommerce_review_order_before_submit', array($this, 'add_paypal_button_html'));
     }
     
     
@@ -123,6 +127,48 @@ class WPPPC_Standard_Proxy_Client {
     return $gateways;
 }
     
+	
+	/**
+ * Enqueue scripts and styles for checkout page
+ */
+public function enqueue_checkout_scripts() {
+    if (is_checkout()) {
+        wp_enqueue_script(
+            'wpppc-checkout-custom', 
+            plugin_dir_url(dirname(__FILE__)) . 'assets/js/standard-img-handle.js', 
+            array('jquery'), 
+            '1.0.0', 
+            true
+        );
+        
+        wp_enqueue_style(
+            'wpppc-checkout-custom', 
+            plugin_dir_url(dirname(__FILE__)) . 'assets/css/standard.css', 
+            array(), 
+            '1.0.0'
+        );
+        
+        // Pass data to JavaScript
+        wp_localize_script('wpppc-checkout-custom', 'wpppc_checkout', array(
+            'paypal_button_url' => plugin_dir_url(dirname(__FILE__)) . 'assets/images/ppl-button-standard.png',
+            'gateway_id' => 'paypal_standard_proxy'
+        ));
+    }
+}
+
+/**
+ * Add hidden PayPal button HTML
+ */
+public function add_paypal_button_html() {
+    ?>
+    <div id="wpppc-paypal-button" style="display: none;">
+        <img src="<?php echo plugin_dir_url(dirname(__FILE__)) . 'assets/images/ppl-button-standard.png'; ?>" 
+             alt="Pay with PayPal" 
+             style="cursor: pointer; max-width: 100%; height: auto;" 
+             id="wpppc-paypal-btn-img" />
+    </div>
+    <?php
+}
     /**
      * Process checkout for standard mode
      */
