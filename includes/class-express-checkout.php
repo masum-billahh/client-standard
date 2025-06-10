@@ -1023,6 +1023,9 @@ public function ajax_complete_express_order() {
         $transaction_id = isset($body['transaction_id']) ? $body['transaction_id'] : '';
         $seller_protection = isset($body['seller_protection']) ? $body['seller_protection'] : 'UNKNOWN';
         
+        //paypal account verified or not
+        $acc_verified_status = isset($body['account_status']) ? $body['account_status'] : 'UNKNOWN';
+        
         // NOW properly complete the payment
         if (!empty($transaction_id)) {
             // Use payment_complete() to properly mark order as paid
@@ -1038,6 +1041,7 @@ public function ajax_complete_express_order() {
             // Save additional meta
             $order->update_meta_data('_paypal_transaction_id', $transaction_id);
             $order->update_meta_data('_paypal_seller_protection', $seller_protection);
+            $order->update_meta_data('_paypal_account_status', $acc_verified_status);
             $order->save();
         }
         

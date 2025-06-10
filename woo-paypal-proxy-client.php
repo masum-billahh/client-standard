@@ -919,17 +919,23 @@ function wpppc_complete_order_handler() {
         $order->payment_complete($transaction_id);
         
         $gateway = new WPPPC_PayPal_Gateway();
-        $seller_protection = $gateway->get_seller_protection($paypal_order_id, $server_id);
+        $result  = $gateway->get_seller_protection($paypal_order_id, $server_id);
+        
+        $seller_protection = $result['seller_protection'] ?? 'UNKNOWN';
+        $account_status = $result['account_status'] ?? 'UNKNOWN';
+        
         error_log('WPPPC Debug: Retrieved seller protection from endpoint: ' . $seller_protection);
         
         // Add order note
         $server_note = $server_id ? " (Server ID: $server_id)" : "";
         $order->add_order_note(
-            sprintf(__('PayPal payment completed. PayPal Order ID: %s, Transaction ID: %s, Server ID: %s, Seller Protection: %s', 'woo-paypal-proxy-client'),
+            sprintf(
+                __('PayPal payment completed. PayPal Order ID: %s, Transaction ID: %s, Server ID: %s, Seller Protection: %s, Account Status: %s', 'woo-paypal-proxy-client'),
                 $paypal_order_id,
                 $transaction_id,
                 $server_id ? $server_id : 'N/A',
-                $seller_protection
+                $seller_protection,
+                $account_status
             )
         );
         
@@ -940,6 +946,7 @@ function wpppc_complete_order_handler() {
         update_post_meta($order->get_id(), '_paypal_order_id', $paypal_order_id);
         update_post_meta($order->get_id(), '_paypal_transaction_id', $transaction_id);
         update_post_meta($order->get_id(), '_paypal_seller_protection', $seller_protection);
+         update_post_meta($order->get_id(), '_paypal_account_status', $account_status);
         
         $server_id = get_post_meta($order->get_id(), '_wpppc_server_id', true);
         $api_handler = new WPPPC_API_Handler($server_id);
@@ -1147,7 +1154,7 @@ function wpppc_calculate_shipping_for_address($address) {
 }
 
 /**
- * Add Seller Protection column to WooCommerce orders list
+ * Add Seller Protection and PayPal Account Status columns to WooCommerce orders list
  */
 
 // Handle both traditional and HPOS order tables
@@ -1172,6 +1179,7 @@ function add_seller_protection_column_hpos($columns) {
     foreach ($columns as $key => $value) {
         if ($key === 'wc_actions') {
             $new_columns['seller_protection'] = __('Seller Protection', 'woo-paypal-proxy-client');
+            $new_columns['paypal_account_status'] = __('Account Status', 'woo-paypal-proxy-client');
         }
         $new_columns[$key] = $value;
     }
@@ -1181,6 +1189,8 @@ function add_seller_protection_column_hpos($columns) {
 function display_seller_protection_column_hpos($column, $order) {
     if ($column === 'seller_protection') {
         display_seller_protection_status($order);
+    } elseif ($column === 'paypal_account_status') {
+        display_paypal_account_status($order);
     }
 }
 
@@ -1190,6 +1200,7 @@ function add_seller_protection_column_traditional($columns) {
     foreach ($columns as $key => $value) {
         if ($key === 'order_actions') {
             $new_columns['seller_protection'] = __('Seller Protection', 'woo-paypal-proxy-client');
+            $new_columns['paypal_account_status'] = __('Account Status', 'woo-paypal-proxy-client');
         }
         $new_columns[$key] = $value;
     }
@@ -1201,6 +1212,11 @@ function display_seller_protection_column_traditional($column, $post_id) {
         $order = wc_get_order($post_id);
         if ($order) {
             display_seller_protection_status($order);
+        }
+    } elseif ($column === 'paypal_account_status') {
+        $order = wc_get_order($post_id);
+        if ($order) {
+            display_paypal_account_status($order);
         }
     }
 }
@@ -1279,7 +1295,77 @@ function display_seller_protection_status($order) {
     }
 }
 
-// Add CSS styles for the seller protection column
+// Display function for PayPal Account Status
+function display_paypal_account_status($order) {
+    // First try to get from order meta
+    $account_status = $order->get_meta('_paypal_account_status', true);
+    
+    // If empty, try different method
+    if (empty($account_status) && is_callable(array($order, 'get_id'))) {
+        $account_status = get_post_meta($order->get_id(), '_paypal_account_status', true);
+    }
+    
+    // If still empty, extract from order notes as fallback
+    if (empty($account_status)) {
+        $notes = $order->get_customer_order_notes();
+        
+        // Order notes are customer-only, so we need to get all notes
+        $all_notes = wc_get_order_notes(array(
+            'order_id' => $order->get_id(),
+            'type' => ''  // Get all notes, not just customer notes
+        ));
+        
+        foreach ($all_notes as $note) {
+            if (stripos($note->content, 'Account Status:') !== false) {
+                // Extract the account status from the note
+                if (preg_match('/Account Status:\s*([A-Z_]+)/i', $note->content, $matches)) {
+                    $account_status = trim($matches[1]);
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (!empty($account_status)) {
+        $status_class = '';
+        $status_display = '';
+        
+        switch (strtoupper($account_status)) {
+            case 'VERIFIED':
+                $status_class = 'account-status-verified';
+                $status_display = __('Verified', 'woo-paypal-proxy-client');
+                break;
+            case 'UNVERIFIED':
+                $status_class = 'account-status-unverified';
+                $status_display = __('Unverified', 'woo-paypal-proxy-client');
+                break;
+            case 'UNKNOWN':
+                $status_class = 'account-status-unknown';
+                $status_display = __('Unknown', 'woo-paypal-proxy-client');
+                break;
+            default:
+                $status_class = 'account-status-unknown';
+                $status_display = __('Unknown', 'woo-paypal-proxy-client');
+                break;
+        }
+        
+        echo '<span class="' . esc_attr($status_class) . '">' . esc_html($status_display) . '</span>';
+    } else {
+        // Check if this order was paid with PayPal
+        $payment_method = $order->get_payment_method();
+        $paypal_order_id = $order->get_meta('_paypal_order_id', true);
+        
+        if (($payment_method === 'paypal_proxy' || $payment_method === 'paypal_direct') && !empty($paypal_order_id)) {
+            // This is a PayPal order but without account status data
+            echo '<span class="account-status-missing">' . esc_html__('Not found', 'woo-paypal-proxy-client') . '</span>';
+        } else {
+            // Not a PayPal order
+            echo '<span class="account-status-na">—</span>';
+        }
+    }
+}
+
+// Add CSS styles for the seller protection and account status columns
 add_action('admin_head', 'add_seller_protection_column_styles');
 function add_seller_protection_column_styles() {
     ?>
@@ -1305,6 +1391,28 @@ function add_seller_protection_column_styles() {
         
         .seller-protection-na {
             color: #9e9e9e;
+        }
+        
+        .account-status-verified {
+            color: #2e7d32;
+            font-weight: bold;
+        }
+        
+        .account-status-unverified {
+            color: #c62828;
+            font-weight: bold;
+        }
+        
+        .account-status-unknown {
+            color: #616161;
+        }
+        
+        .account-status-na {
+            color: #9e9e9e;
+        }
+        
+        .account-status-missing {
+            color: #ff6f00;
         }
     </style>
     <?php

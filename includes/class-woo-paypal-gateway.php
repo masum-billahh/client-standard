@@ -431,7 +431,15 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
     $seller_protection = isset($body['seller_protection']) ? $body['seller_protection'] : 'UNKNOWN';
     error_log('Retrieved seller protection status: ' . $seller_protection);
     
-    return $seller_protection;
+     // Get seller protection status
+    $account_status = isset($body['account_status']) ? $body['account_status'] : 'UNKNOWN';
+    error_log('Retrieved account status: ' . $account_status);
+    
+    return [
+        'seller_protection' => $seller_protection,
+        'account_status' => $account_status
+    ];
+    
     }
     
  public function add_mobile_detection_script() {
