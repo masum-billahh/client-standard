@@ -484,6 +484,9 @@ public function handle_return() {
         $seller_protection = isset($_GET['seller_protection']) ? sanitize_text_field($_GET['seller_protection']) : 'UNKNOWN';
         update_post_meta($order_id, '_paypal_seller_protection', $seller_protection);
         
+        $account_status = isset($_GET['account_status']) ? sanitize_text_field($_GET['account_status']) : 'UNKNOWN';
+        update_post_meta($order_id, '_paypal_account_status', $account_status);
+        
          // Add order note
     $order->add_order_note(
         sprintf(__('Payment completed via PayPal Standard. Transaction ID: %s, Seller Protection: %s', 'woo-paypal-proxy-client'), 
