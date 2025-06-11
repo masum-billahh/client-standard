@@ -460,8 +460,18 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
         .find(row => row.startsWith('wpppc_is_real_mobile='));
     
     // Detect if this is a real mobile device
-    //const isRealMobile = navigator.maxTouchPoints > 2;
-	const isRealMobile = navigator.maxTouchPoints > 2 && window.innerWidth <= 768;
+    const touch = navigator.maxTouchPoints > 2;
+        const isSmallScreen = screen.width < 500;
+        const isRealMobile = touch && isSmallScreen;
+		
+		/*
+        const output = `
+            <p>isSmallScreen: ${isSmallScreen}</p>
+            <p>touch: ${touch}</p>
+            <p>isRealMobile: ${isRealMobile}</p>
+        `;
+        document.getElementById('info').innerHTML = output;
+		*/
     
     // Set the cookie regardless
     document.cookie = "wpppc_is_real_mobile=" + (isRealMobile ? "1" : "0") + 
@@ -495,6 +505,7 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
     </script>
     <?php
 }
+
 
 public function is_real_mobile_device() {
     // First check for cookie, give it priority
