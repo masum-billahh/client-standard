@@ -50,6 +50,6 @@ jQuery(function ($) {
             iframe.css('height', '50px'); 
             $('<div style="color:red; padding-top:10px; text-align:center;">Sorry, something went wrong. Please refresh the page or contact the site owner.</div>').insertAfter(iframe);
         }
-    }, 2000);
+    }, 3000);
 });
 </script>
