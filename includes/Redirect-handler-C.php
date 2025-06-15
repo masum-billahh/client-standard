@@ -176,7 +176,8 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
                 'fox_active'    => $is_fox_active,
                 'original_meta_data' => $item['meta_data'],
                 'external_item_index' => $index,
-                'external_product_id' => $external_product_id
+                'external_product_id' => $external_product_id,
+                'original_local_product_id' => $local_product_id
             );
             error_log("Cart item key: $cart_item_key with custom data: " . print_r($cart_item_data, true));
         } else {
@@ -271,35 +272,36 @@ function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $or
         'line_subtotal_tax', 
         'line_total', 
         'line_tax',
-        'quantity' // Add quantity to exclude list
+        'quantity'
     );
     
-    // Save WAPF fields if present - only if they have actual values
+    // Save WAPF fields if present
     if (!empty($values['wapf']) && is_array($values['wapf'])) {
         foreach ($values['wapf'] as $index => $field) {
             if (!empty($field['label']) && !empty($field['value'])) {
-                // Save with clean label (no "wapf_" prefix)
                 $clean_label = sanitize_text_field($field['label']);
                 $item->add_meta_data($clean_label, sanitize_text_field($field['value']));
             }
         }
-        // Don't save the full WAPF data structure to avoid duplication
     }
     
-    // Save other custom fields - only if they have values
+    // Save other custom fields
     foreach ($values as $key => $value) {
         if (in_array($key, $exclude_keys)) continue;
-        if ($key === 'wapf') continue; // Already handled above
+        if ($key === 'wapf') continue;
         if (is_array($value) || is_object($value)) continue;
-        if (strpos($key, 'cost') !== false) continue; // Skip cost fields
-        if (empty($value)) continue; // Skip empty values
+        if (strpos($key, 'cost') !== false) continue;
+        if (empty($value)) continue;
         
-        // Save with display-friendly key
-        $display_key = ucwords(str_replace('_', ' ', $key));
-        $item->add_meta_data($display_key, sanitize_text_field($value));
+        // Special handling for external_product_id
+        if ($key === 'external_product_id') {
+            $item->add_meta_data('_external_product_id', $value);
+        } else {
+            $display_key = ucwords(str_replace('_', ' ', $key));
+            $item->add_meta_data($display_key, sanitize_text_field($value));
+        }
     }
 }
-
 add_filter('woocommerce_cart_item_name', 'override_cart_item_name', 10, 3);
 function override_cart_item_name($product_name, $cart_item, $cart_item_key) {
     if (isset($cart_item['custom_name'])) {
@@ -871,30 +873,27 @@ function prepare_order_data_for_redirect($order) {
     );
     
     // Add order items
-    foreach ($order->get_items() as $item) {
+   foreach ($order->get_items() as $item) {
         $product = $item->get_product();
-        $external_product_id = get_post_meta($item->get_product_id(), '_external_product_id', true);
-        $external_variation_id = 0;
         
-        if ($item->get_variation_id()) {
-            $external_variation_id = get_post_meta($item->get_variation_id(), '_external_variation_id', true);
+        // Get the external product ID from the order item meta
+        $external_product_id = $item->get_meta('_external_product_id');
+        if (empty($external_product_id)) {
+            $external_product_id = $item->get_product_id(); // Fallback to local ID if meta is missing
         }
         
-        // Get all item meta data (including custom fields and WAPF data)
+        $external_variation_id = 0; // Adjust if handling variations
+        
+        // Get custom fields
         $item_meta = array();
         $meta_data = $item->get_meta_data();
-        
-       foreach ($meta_data as $meta) {
-        $key = $meta->get_data()['key'];
-        $value = $meta->get_data()['value'];
-    
-        // Skip internal WooCommerce meta and keys containing "key"
-        if (strpos($key, '_') === 0 || stripos($key, 'key') !== false) continue;
-    
-        // Include all custom fields
-        $item_meta[$key] = $value;
-    }
-
+        foreach ($meta_data as $meta) {
+            $key = $meta->key;
+            $value = $meta->value;
+            if (strpos($key, '_') !== 0 && stripos($key, 'key') === false) {
+                $item_meta[$key] = $value;
+            }
+        }
         
         $order_data['items'][] = array(
             'name' => $item->get_name(),
