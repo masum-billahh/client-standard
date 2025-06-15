@@ -35,7 +35,7 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
     foreach ($cart_data['items'] as $index => $item) {
         $external_product_id = intval($item['product_id']);
         $quantity = intval($item['quantity']);
-        $external_variation_id = isset($item['variation_id']) ? intval($item['variation_id']) : 0;
+        $external_variation_id = intval($item['variation_id']);
 
         $local_product_id = null;
         
@@ -71,6 +71,7 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
             // Add a unique identifier to distinguish items using the same product
             $cart_item_data['external_item_index'] = $index;
             $cart_item_data['external_product_id'] = $external_product_id;
+            $cart_item_data['external_variation_id'] = $external_variation_id;
             
             // Modify product name if reusing the same product ID
             $reuse_count = 0;
@@ -177,6 +178,7 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
                 'original_meta_data' => $item['meta_data'],
                 'external_item_index' => $index,
                 'external_product_id' => $external_product_id,
+                'external_variation_id' => $external_variation_id,
                 'original_local_product_id' => $local_product_id
             );
             error_log("Cart item key: $cart_item_key with custom data: " . print_r($cart_item_data, true));
@@ -262,6 +264,7 @@ function show_all_custom_cart_item_data($item_data, $cart_item) {
 
 add_action('woocommerce_checkout_create_order_line_item', 'save_custom_cart_data_to_order_item', 10, 4);
 
+
 function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $order) {
     $exclude_keys = array(
         'product_id', 
@@ -293,9 +296,11 @@ function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $or
         if (strpos($key, 'cost') !== false) continue;
         if (empty($value)) continue;
         
-        // Special handling for external_product_id
+        // Special handling for external_product_id and external_variation_id
         if ($key === 'external_product_id') {
             $item->add_meta_data('_external_product_id', $value);
+        } elseif ($key === 'external_variation_id') {
+            $item->add_meta_data('_external_variation_id', $value);
         } else {
             $display_key = ucwords(str_replace('_', ' ', $key));
             $item->add_meta_data($display_key, sanitize_text_field($value));
@@ -842,8 +847,6 @@ function prepare_order_data_for_redirect($order) {
         'date_created' => $order->get_date_created()->format('Y-m-d H:i:s'),
         'payment_method' => $order->get_payment_method(),
         'payment_method_title' => $order->get_payment_method_title(),
-        
-        // Customer data
         'billing' => array(
             'first_name' => $order->get_billing_first_name(),
             'last_name' => $order->get_billing_last_name(),
@@ -856,7 +859,6 @@ function prepare_order_data_for_redirect($order) {
             'postcode' => $order->get_billing_postcode(),
             'country' => $order->get_billing_country(),
         ),
-        
         'shipping' => array(
             'first_name' => $order->get_shipping_first_name(),
             'last_name' => $order->get_shipping_last_name(),
@@ -867,22 +869,23 @@ function prepare_order_data_for_redirect($order) {
             'postcode' => $order->get_shipping_postcode(),
             'country' => $order->get_shipping_country(),
         ),
-        
-        // Order items
         'items' => array()
     );
     
-    // Add order items
-   foreach ($order->get_items() as $item) {
+    foreach ($order->get_items() as $item) {
         $product = $item->get_product();
         
-        // Get the external product ID from the order item meta
+        // Get the external product ID and variation ID from the order item meta
         $external_product_id = $item->get_meta('_external_product_id');
-        if (empty($external_product_id)) {
-            $external_product_id = $item->get_product_id(); // Fallback to local ID if meta is missing
-        }
+        $external_variation_id = $item->get_meta('_external_variation_id');
         
-        $external_variation_id = 0; // Adjust if handling variations
+        // Fallback to local IDs if meta is missing
+        if (empty($external_product_id)) {
+            $external_product_id = $item->get_product_id();
+        }
+        if (empty($external_variation_id)) {
+            $external_variation_id = $item->get_variation_id();
+        }
         
         // Get custom fields
         $item_meta = array();
