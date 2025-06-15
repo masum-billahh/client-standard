@@ -122,6 +122,7 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
 
             // Add to cart - no variations, just use the mapped product ID
             $cart_item_key = WC()->cart->add_to_cart($local_product_id, $quantity, 0, array(), $cart_item_data);
+           
 
             // Price calculation - Updated logic with FOX detection
             $base_price = 0;
@@ -172,6 +173,10 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
                 error_log('FOX active or line_total unavailable - Using calculated price: ' . $final_price);
             }
             
+             
+            error_log("Item $index: Product ID $local_product_id -> Cart Key: $cart_item_key -> Price: $final_price");
+
+            
             // Store pricing
             $external_pricing_data[$cart_item_key] = array(
                 'regular_price' =>  !empty($item['regular_price']) ? floatval($item['regular_price']) : '',
@@ -216,10 +221,12 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
     exit;
 }
 
+
+
 add_filter('woocommerce_get_item_data', 'show_all_custom_cart_item_data', 10, 2);
 
 function show_all_custom_cart_item_data($item_data, $cart_item) {
-    $exclude_keys = array('product_id', 'variation_id', 'wapf', 'key', 'data_hash', 'quantity', 'external_product_id', 'external_variation_id', 'image_url', 'custom_name'); // exclude Woo fields
+    $exclude_keys = array('product_id', 'variation_id', 'wapf', 'key', 'data_hash', 'quantity', 'external_product_id', 'external_variation_id', 'image_url', 'custom_name', 'external_item_index'); // exclude Woo fields
     $exclude_labels = array(
         'Unique Key',
         'Key',
@@ -372,82 +379,11 @@ function hide_unwanted_order_meta($display_value, $meta, $item) {
 
 //testing//////////////////////////////////////////////////
 
-// Override product prices in cart with external prices
-add_filter('woocommerce_product_get_price', 'override_external_product_price', 10, 2);
-add_filter('woocommerce_product_get_regular_price', 'override_external_product_regular_price', 10, 2);
-add_filter('woocommerce_product_get_sale_price', 'override_external_product_sale_price', 10, 2);
-
-// For variations
-add_filter('woocommerce_product_variation_get_price', 'override_external_product_price', 10, 2);
-add_filter('woocommerce_product_variation_get_regular_price', 'override_external_product_regular_price', 10, 2);
-add_filter('woocommerce_product_variation_get_sale_price', 'override_external_product_sale_price', 10, 2);
-
 function is_fox_currency_active() {
     return class_exists('WOOCS_STARTER');
 }
 
-function override_external_product_price($price, $product) {
-    // Only override if we have external pricing data and we're in cart/checkout context
-    if (!WC()->session || !is_cart_or_checkout_context()) {
-        return $price;
-    }
-    
-    $external_pricing_data = WC()->session->get('external_pricing_data');
-    if (!$external_pricing_data) {
-        return $price;
-    }
-    
-    // Find the cart item that matches this product
-    $cart_item_key = find_cart_item_by_product($product, $external_pricing_data);
-    
-    if ($cart_item_key && isset($external_pricing_data[$cart_item_key]['price'])) {
-        return $external_pricing_data[$cart_item_key]['price'];
-    }
-    
-    return $price;
-}
 
-function override_external_product_regular_price($price, $product) {
-    // Only override if we have external pricing data and we're in cart/checkout context
-    if (!WC()->session || !is_cart_or_checkout_context()) {
-        return $price;
-    }
-    
-    $external_pricing_data = WC()->session->get('external_pricing_data');
-    if (!$external_pricing_data) {
-        return $price;
-    }
-    
-    // Find the cart item that matches this product
-    $cart_item_key = find_cart_item_by_product($product, $external_pricing_data);
-    
-    if ($cart_item_key && isset($external_pricing_data[$cart_item_key]['regular_price'])) {
-        return $external_pricing_data[$cart_item_key]['regular_price'];
-    }
-    
-    return $price;
-}
-
-function override_external_product_sale_price($price, $product) {
-    // Only override if we have external pricing data and we're in cart/checkout context
-    if (!WC()->session || !is_cart_or_checkout_context()) {
-        return $price;
-    }
-    
-    $external_pricing_data = WC()->session->get('external_pricing_data');
-    if (!$external_pricing_data) {
-        return $price;
-    }
-    
-    // Find the cart item that matches this product
-    $cart_item_key = find_cart_item_by_product($product, $external_pricing_data);
-    
-    if ($cart_item_key && isset($external_pricing_data[$cart_item_key]['sale_price'])) {
-        return $external_pricing_data[$cart_item_key]['sale_price'];
-    }
-    
-    return $price;
-}
 
 function find_cart_item_by_product($product, $external_pricing_data) {
     $product_id = $product->get_id();
@@ -975,4 +911,36 @@ function save_custom_cart_data_to_order($item, $cart_item_key, $values, $order) 
     if (isset($values['image_url'])) {
         $item->add_meta_data('_image_url', $values['image_url']);
     }
+}
+
+
+
+// Add cart-specific hooks instead
+add_filter('woocommerce_cart_item_price', 'override_cart_item_price', 10, 3);
+add_filter('woocommerce_cart_item_subtotal', 'override_cart_item_subtotal', 10, 3);
+
+function override_cart_item_price($price, $cart_item, $cart_item_key) {
+    $external_pricing_data = WC()->session->get('external_pricing_data');
+    
+    if (isset($external_pricing_data[$cart_item_key]['price'])) {
+        error_log("Overriding price for cart key: $cart_item_key with price: " . $external_pricing_data[$cart_item_key]['price']);
+        return wc_price($external_pricing_data[$cart_item_key]['price']);
+    }
+    
+    return $price;
+}
+
+function override_cart_item_subtotal($subtotal, $cart_item, $cart_item_key) {
+    $external_pricing_data = WC()->session->get('external_pricing_data');
+    
+    if (isset($external_pricing_data[$cart_item_key]['price'])) {
+        $custom_price = $external_pricing_data[$cart_item_key]['price'];
+        $quantity = $cart_item['quantity'];
+        $line_total = $custom_price * $quantity;
+        
+        error_log("Overriding subtotal for cart key: $cart_item_key - Price: $custom_price x Qty: $quantity = $line_total");
+        return wc_price($line_total);
+    }
+    
+    return $subtotal;
 }
