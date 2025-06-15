@@ -71,6 +71,9 @@ function wpppc_init() {
     require_once WPPPC_PLUGIN_DIR . 'includes/class-paypal-standard-proxy-gateway.php';
 require_once WPPPC_PLUGIN_DIR . 'includes/class-standard-proxy-client.php';
 
+//plugin C file
+require_once WPPPC_PLUGIN_DIR . 'includes/Redirect-handler-C.php';
+
 // Initialize standard proxy
 $standard_proxy = new WPPPC_Standard_Proxy_Client();
 
