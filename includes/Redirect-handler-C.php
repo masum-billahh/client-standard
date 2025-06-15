@@ -73,6 +73,11 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
             $cart_item_data['external_product_id'] = $external_product_id;
             $cart_item_data['external_variation_id'] = $external_variation_id;
             
+            // Add image_url to cart item data if provided
+            if (isset($item['image_url'])) {
+                $cart_item_data['image_url'] = $item['image_url'];
+            }
+            
             // Modify product name if reusing the same product ID
             $reuse_count = 0;
             foreach ($processed_product_ids as $used_id) {
@@ -86,6 +91,8 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
             } else {
                 $cart_item_data['custom_name'] = $item['name'];
             }
+            
+            
             
             // Add simplified WAPF data if present
             if (isset($item['meta_data']['wapf'])) {
@@ -212,7 +219,7 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
 add_filter('woocommerce_get_item_data', 'show_all_custom_cart_item_data', 10, 2);
 
 function show_all_custom_cart_item_data($item_data, $cart_item) {
-    $exclude_keys = array('product_id', 'variation_id', 'wapf', 'key', 'data_hash', 'quantity'); // exclude Woo fields
+    $exclude_keys = array('product_id', 'variation_id', 'wapf', 'key', 'data_hash', 'quantity', 'external_product_id', 'external_variation_id', 'image_url', 'custom_name'); // exclude Woo fields
     $exclude_labels = array(
         'Unique Key',
         'Key',
@@ -221,7 +228,10 @@ function show_all_custom_cart_item_data($item_data, $cart_item) {
         'Line Subtotal',
         'Line Subtotal Tax',
         'Line Total',
-        'Line Tax'
+        'Line Tax',
+        'external_product_id',   
+        'external_variation_id', 
+        'image_url'
     );
 
     // Handle WAPF fields (structured array) - only if they have actual values
@@ -259,7 +269,7 @@ function show_all_custom_cart_item_data($item_data, $cart_item) {
 }
 
 
-//testing
+
 
 
 add_action('woocommerce_checkout_create_order_line_item', 'save_custom_cart_data_to_order_item', 10, 4);
@@ -945,4 +955,24 @@ function create_order_redirect_form($source_site, $order_data, $order_id) {
     </body>
     </html>
     <?php
+}
+
+add_filter('woocommerce_cart_item_thumbnail', 'override_cart_item_thumbnail', 10, 3);
+
+function override_cart_item_thumbnail($thumbnail, $cart_item, $cart_item_key) {
+    // Check if the cart item has a custom image_url
+    if (isset($cart_item['image_url'])) {
+        // Return an img tag with the custom image_url
+        return '<img src="' . esc_url($cart_item['image_url']) . '" class="attachment-woocommerce_thumbnail size-woocommerce_thumbnail" alt="">';
+    }
+    // Fallback to the default product thumbnail if no custom image_url
+    return $thumbnail;
+}
+
+add_action('woocommerce_checkout_create_order_line_item', 'save_custom_cart_data_to_order', 10, 4);
+
+function save_custom_cart_data_to_order($item, $cart_item_key, $values, $order) {
+    if (isset($values['image_url'])) {
+        $item->add_meta_data('_image_url', $values['image_url']);
+    }
 }
