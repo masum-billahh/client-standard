@@ -913,9 +913,24 @@ function save_custom_cart_data_to_order($item, $cart_item_key, $values, $order) 
     }
 }
 
+add_action('woocommerce_before_calculate_totals', 'set_custom_cart_prices', 10, 1);
+
+function set_custom_cart_prices($cart) {
+    if (is_admin() && !defined('DOING_AJAX')) return;
+    if (did_action('woocommerce_before_calculate_totals') >= 2) return;
+
+    $external_pricing_data = WC()->session->get('external_pricing_data');
+
+    foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+        if (isset($external_pricing_data[$cart_item_key]['price'])) {
+            $custom_price = $external_pricing_data[$cart_item_key]['price'];
+            $cart_item['data']->set_price($custom_price);
+        }
+    }
+}
 
 
-// Add cart-specific hooks instead
+//cart-specific hooks 
 add_filter('woocommerce_cart_item_price', 'override_cart_item_price', 10, 3);
 add_filter('woocommerce_cart_item_subtotal', 'override_cart_item_subtotal', 10, 3);
 
