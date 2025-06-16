@@ -610,68 +610,7 @@ function create_new_product($item_data, $external_product_id) {
     return $product_id;
 }
 
-function find_or_create_variation($parent_product_id, $item_data, $external_variation_id) {
-    // Check if variation already exists
-    $existing_variations = get_posts(array(
-        'post_type' => 'product_variation',
-        'post_parent' => $parent_product_id,
-        'meta_query' => array(
-            array(
-                'key' => '_external_variation_id',
-                'value' => $external_variation_id,
-                'compare' => '='
-            )
-        ),
-        'posts_per_page' => 1
-    ));
-    
-    if (!empty($existing_variations)) {
-        return $existing_variations[0]->ID;
-    }
-    
-    // Create new variation
-    if (!isset($item_data['variation_data'])) {
-        return 0;
-    }
-    
-    $variation = new WC_Product_Variation();
-    $variation->set_parent_id($parent_product_id);
-    
-    // Set variation attributes
-    if (!empty($item_data['variation_data']['attributes'])) {
-        $variation->set_attributes($item_data['variation_data']['attributes']);
-    }
-    
-    // Set prices
-    if (!empty($item_data['regular_price'])) {
-        $variation->set_regular_price($item_data['regular_price']);
-    }
-    if (!empty($item_data['sale_price'])) {
-        $variation->set_sale_price($item_data['sale_price']);
-    }
-    if (!empty($item_data['price'])) {
-        $variation->set_price($item_data['price']);
-    }
-    
-    // Set SKU
-    if (!empty($item_data['sku'])) {
-        $variation->set_sku($item_data['sku'] . '_var');
-    }
-    
-    $variation_id = $variation->save();
-    
-    if ($variation_id) {
-        // Store external variation ID
-        update_post_meta($variation_id, '_external_variation_id', $external_variation_id);
-        
-        // Set variation image if different from parent
-        if (!empty($item_data['image_url'])) {
-            set_product_image_from_url($variation_id, $item_data['image_url']);
-        }
-    }
-    
-    return $variation_id;
-}
+
 
 function set_product_image_from_url($product_id, $image_url) {
     if (empty($image_url)) {
@@ -777,27 +716,6 @@ function prefill_checkout_from_external($checkout) {
         WC()->session->set('external_user_data', null);
     }
 }
-
-/*
-// Add notice about external source
-add_action('woocommerce_before_checkout_form', 'show_external_source_notice');
-function show_external_source_notice() {
-    $source_site = WC()->session->get('source_site');
-    
-    if ($source_site) {
-        $parsed_url = parse_url($source_site);
-        $domain = $parsed_url['host'] ?? $source_site;
-        
-        echo '<div class="woocommerce-info">';
-        echo sprintf(__('Your cart has been transferred from %s. Please review your items before completing checkout.', 'woocommerce'), '<strong>' . esc_html($domain) . '</strong>');
-        echo '</div>';
-        
-        // Clear after showing
-        WC()->session->set('source_site', null);
-    }
-}
-*/
-
 
 
 
@@ -1058,4 +976,19 @@ function validate_cart_redirector_product_ids($request) {
     }
 
     return new WP_REST_Response(['valid' => true], 200);
+}
+
+
+add_filter('woocommerce_order_item_name', 'override_order_item_name_in_admin', 10, 3);
+
+function override_order_item_name_in_admin($item_name, $item, $is_visible) {
+    // Check if in admin context
+    if (is_admin()) {
+        // Get the custom name from order item meta
+        $custom_name = $item->get_meta('Custom Name');
+        if (!empty($custom_name)) {
+            return esc_html($custom_name);
+        }
+    }
+    return $item_name;
 }
