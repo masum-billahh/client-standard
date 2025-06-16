@@ -959,3 +959,47 @@ function override_cart_item_subtotal($subtotal, $cart_item, $cart_item_key) {
     
     return $subtotal;
 }
+
+//api to validate product exist
+add_action('rest_api_init', function () {
+    register_rest_route('cart-redirector/v1', '/validate-products', [
+        'methods'  => 'POST',
+        'callback' => 'validate_cart_redirector_product_ids',
+        'permission_callback' => '__return_true',
+    ]);
+});
+
+function validate_cart_redirector_product_ids($request) {
+    $params = $request->get_json_params();
+    $ids = isset($params['product_ids']) ? array_map('intval', $params['product_ids']) : [];
+
+    if (empty($ids)) {
+        return new WP_REST_Response([
+            'valid' => false,
+            'error' => 'No product IDs provided.',
+        ], 400);
+    }
+
+    $missing = [];
+
+    foreach ($ids as $id) {
+        $post = get_post($id);
+        if (
+            !$post ||
+            $post->post_type !== 'product' ||
+            $post->post_status !== 'publish'
+        ) {
+            $missing[] = $id;
+        }
+    }
+
+    if (!empty($missing)) {
+        return new WP_REST_Response([
+            'valid'       => false,
+            'missing_ids' => $missing,
+            'error'       => 'Some product IDs are invalid or not published in A site.',
+        ], 200);
+    }
+
+    return new WP_REST_Response(['valid' => true], 200);
+}
