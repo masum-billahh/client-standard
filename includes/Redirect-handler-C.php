@@ -340,7 +340,16 @@ function customize_order_item_meta_key_display($display_key, $meta, $item) {
         'Key', 
         'Quantity',
         'Data Hash',
-        '_wapf_data'
+        '_wapf_data',
+        '_external_product_id',   
+        '_external_variation_id', 
+        '_image_url',             
+        'Image Url',              
+        '_external_item_index',   
+        'External Item Index',
+        'External Product Id',
+        'External Variation Id',
+        'Custom Name'
     );
     
     if (in_array($display_key, $hidden_keys)) {
@@ -358,7 +367,45 @@ function customize_order_item_meta_key_display($display_key, $meta, $item) {
     return $display_key;
 }
 
-// Add this new filter to hide unwanted meta from order item display
+add_filter('woocommerce_order_item_get_formatted_meta_data', 'filter_order_item_meta_data', 10, 2);
+function filter_order_item_meta_data($formatted_meta, $item) {
+    $hidden_keys = array(
+        'Unique Key',
+        'Key',
+        'Quantity',
+        'Data Hash',
+        '_wapf_data',
+        '_external_product_id',
+        '_external_variation_id',
+        '_image_url',
+        'Image Url',
+        '_external_item_index',
+        'External Item Index',
+        'External Product Id',
+        'External Variation Id',
+        'Custom Name'
+    );
+    
+    $filtered_meta = array();
+    
+    foreach ($formatted_meta as $meta_id => $meta) {
+        // Skip if key is in hidden list
+        if (in_array($meta->display_key, $hidden_keys)) {
+            continue;
+        }
+        
+        // Skip if value is empty
+        if (empty($meta->display_value) || $meta->display_value === '' || $meta->display_value === ':') {
+            continue;
+        }
+        
+        $filtered_meta[$meta_id] = $meta;
+    }
+    
+    return $filtered_meta;
+}
+
+// filter to hide unwanted meta from order item display
 add_filter('woocommerce_order_item_display_meta_value', 'hide_unwanted_order_meta', 10, 3);
 function hide_unwanted_order_meta($display_value, $meta, $item) {
     // List of meta keys to hide completely
@@ -367,7 +414,16 @@ function hide_unwanted_order_meta($display_value, $meta, $item) {
         'Key',
         'Quantity', 
         'Data Hash',
-        '_wapf_data'
+        '_wapf_data',
+         '_external_product_id',
+        '_external_variation_id', 
+        '_image_url',             
+        'Image Url',              
+        '_external_item_index',   
+        'External Item Index',
+        'External Product Id',
+        'External Variation Id',
+        'Custom Name'
     );
     
     if (in_array($meta->key, $hidden_keys)) {
