@@ -703,17 +703,18 @@ function get_or_create_external_category() {
 // Auto-fill checkout form with external user data
 add_action('woocommerce_checkout_init', 'prefill_checkout_from_external');
 function prefill_checkout_from_external($checkout) {
-    $user_data = WC()->session->get('external_user_data');
-    
-    if (!empty($user_data)) {
-        foreach ($user_data as $key => $value) {
-            if (!empty($value)) {
-                $_POST[$key] = $value;
+    if (WC()->session && method_exists(WC()->session, 'get')) {
+        $user_data = WC()->session->get('external_user_data');
+
+        if (!empty($user_data)) {
+            foreach ($user_data as $key => $value) {
+                if (!empty($value)) {
+                    $_POST[$key] = $value;
+                }
             }
+
+            WC()->session->set('external_user_data', null);
         }
-        
-        // Clear the session data after use
-        WC()->session->set('external_user_data', null);
     }
 }
 
