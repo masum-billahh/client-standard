@@ -346,9 +346,9 @@ function wpppc_update_db_schema_for_amounts() {
             // Also update capacity_limit to decimal for consistency
             $wpdb->query("ALTER TABLE {$table_name} MODIFY COLUMN `capacity_limit` decimal(10,2) NOT NULL DEFAULT 1000");
             
-            if (WP_DEBUG) {
-                error_log('PayPal Proxy - Updated database schema for decimal usage amounts');
-            }
+            //if (WP_DEBUG) {
+                //error_log('PayPal Proxy - Updated database schema for decimal usage amounts');
+            //}
         }
     }
 }
@@ -403,8 +403,9 @@ function wpppc_create_order_handler() {
             wp_die();
         }
         
-        // Create a simple order for testing
-        $order = wc_create_order();
+        // Generate a unique temporary order ID (timestamp + random)
+        $temp_order_id = time() . '_' . wp_rand(1000, 9999);
+        $temp_order_key = 'wpppc_temp_' . $temp_order_id;
         
         // Get and set complete billing address with all fields
         $complete_billing = array(
@@ -419,7 +420,6 @@ function wpppc_create_order_handler() {
             'postcode'   => !empty($_POST['billing_postcode']) ? sanitize_text_field($_POST['billing_postcode']) : '',
             'country'    => !empty($_POST['billing_country']) ? sanitize_text_field($_POST['billing_country']) : '',
         );
-        $order->set_address($complete_billing, 'billing');
 
         // Check if shipping to different address
         $ship_to_different_address = !empty($_POST['ship_to_different_address']);
@@ -439,122 +439,91 @@ function wpppc_create_order_handler() {
             // Copy from billing address
             $complete_shipping = $complete_billing;
         }
-        $order->set_address($complete_shipping, 'shipping');
         
         // *** SHIPPING HANDLING - IMPORTANT ***
         // Get chosen shipping methods from the session
         $chosen_shipping_methods = WC()->session ? WC()->session->get('chosen_shipping_methods') : array();
         $shipping_total = 0;
         $shipping_tax = 0;
+        $shipping_items = array();
         
-        // Store shipping methods in order meta for later recovery if needed
+        // Process shipping methods
         if (!empty($chosen_shipping_methods)) {
-            $order->update_meta_data('_wpppc_shipping_methods', $chosen_shipping_methods);
-            
             WC()->shipping->calculate_shipping(WC()->cart->get_shipping_packages());
-
-            // Get all available shipping packages
             $packages = WC()->shipping->get_packages();
-            
-            // Add shipping line items to the order
-            $shipping_added = false;
             
             foreach ($packages as $package_key => $package) {
                 if (isset($chosen_shipping_methods[$package_key], $package['rates'][$chosen_shipping_methods[$package_key]])) {
                     $shipping_rate = $package['rates'][$chosen_shipping_methods[$package_key]];
                     
-                    // Create shipping line item
-                    $item = new WC_Order_Item_Shipping();
-                    $item->set_props(array(
+                    // Store shipping data
+                    $shipping_items[] = array(
                         'method_title' => $shipping_rate->get_label(),
                         'method_id'    => $shipping_rate->get_method_id(),
                         'total'        => wc_format_decimal($shipping_rate->get_cost()),
                         'taxes'        => $shipping_rate->get_taxes(),
                         'instance_id'  => $shipping_rate->get_instance_id(),
-                    ));
+                        'meta_data'    => $shipping_rate->get_meta_data()
+                    );
                     
-                    // Add any meta data
-                    foreach ($shipping_rate->get_meta_data() as $key => $value) {
-                        $item->add_meta_data($key, $value, true);
-                    }
-                    
-                    // Add to order
-                    $order->add_item($item);
-                    $shipping_added = true;
                     $shipping_total += $shipping_rate->get_cost();
                     $shipping_tax += array_sum($shipping_rate->get_taxes());
                 }
             }
             
-            // Fallback for flat rate shipping if no shipping was added
-            if (!$shipping_added && !empty($chosen_shipping_methods[0]) && strpos($chosen_shipping_methods[0], 'flat_rate') !== false) {
-                // Try to get flat rate cost from cart
+            // Fallback for flat rate shipping
+            if (empty($shipping_items) && !empty($chosen_shipping_methods[0]) && strpos($chosen_shipping_methods[0], 'flat_rate') !== false) {
                 $shipping_total = WC()->cart->get_shipping_total();
                 $shipping_tax = WC()->cart->get_shipping_tax();
                 
                 if ($shipping_total > 0) {
-                    $item = new WC_Order_Item_Shipping();
-                    $item->set_props(array(
+                    $shipping_items[] = array(
                         'method_title' => 'Flat rate shipping',
                         'method_id'    => 'flat_rate',
                         'total'        => wc_format_decimal($shipping_total),
                         'taxes'        => array('total' => array($shipping_tax)),
-                    ));
-                    $order->add_item($item);
+                    );
                 }
             }
             
             // Special handling for free shipping
-if (!$shipping_added && !empty($chosen_shipping_methods[0]) && strpos($chosen_shipping_methods[0], 'free_shipping') !== false) {
-    // Find the free shipping rate
-    foreach ($packages as $package_key => $package) {
-        foreach ($package['rates'] as $rate_id => $rate) {
-            if ($rate->get_method_id() === 'free_shipping') {
-                $item = new WC_Order_Item_Shipping();
-                $item->set_props(array(
-                    'method_title' => $rate->get_label(),
-                    'method_id'    => 'free_shipping',
-                    'total'        => '0.00',
-                    'taxes'        => array(),
-                    'instance_id'  => $rate->get_instance_id(),
-                ));
-                $order->add_item($item);
-                $shipping_added = true;
-                error_log('PayPal Proxy - Added free shipping method: ' . $rate->get_label());
-                break 2;
+            if (empty($shipping_items) && !empty($chosen_shipping_methods[0]) && strpos($chosen_shipping_methods[0], 'free_shipping') !== false) {
+                foreach ($packages as $package_key => $package) {
+                    foreach ($package['rates'] as $rate_id => $rate) {
+                        if ($rate->get_method_id() === 'free_shipping') {
+                            $shipping_items[] = array(
+                                'method_title' => $rate->get_label(),
+                                'method_id'    => 'free_shipping',
+                                'total'        => '0.00',
+                                'taxes'        => array(),
+                                'instance_id'  => $rate->get_instance_id(),
+                            );
+                            break 2;
+                        }
+                    }
+                }
+                
+                // Fallback if rate not found
+                if (empty($shipping_items)) {
+                    $shipping_items[] = array(
+                        'method_title' => 'Free Shipping',
+                        'method_id'    => 'free_shipping',
+                        'total'        => '0.00',
+                        'taxes'        => array(),
+                    );
+                }
             }
         }
-    }
-    
-    // Fallback if rate not found
-    if (!$shipping_added) {
-        $item = new WC_Order_Item_Shipping();
-        $item->set_props(array(
-            'method_title' => 'Free Shipping',
-            'method_id'    => 'free_shipping',
-            'total'        => '0.00',
-            'taxes'        => array(),
-        ));
-        $order->add_item($item);
-        error_log('PayPal Proxy - Added fallback free shipping');
-    }
-}
-        }
         
-        // Prepare line items array to send to PayPal proxy
+        // Prepare line items array
         $line_items = array();
+        $cart_items = array();
         $cart_subtotal = 0;
         $tax_total = 0;
         
-        // Add cart items
+        // Process cart items
         if (WC()->cart->is_empty()) {
             // For testing, add a dummy product if cart is empty
-            $product = new WC_Product_Simple();
-            $product->set_name('Test Product');
-            $product->set_price(10.00);
-            $order->add_product($product, 1);
-            
-            // Add dummy item to line items
             $line_items[] = array(
                 'name' => 'Test Product',
                 'quantity' => 1,
@@ -564,188 +533,189 @@ if (!$shipping_added && !empty($chosen_shipping_methods[0]) && strpos($chosen_sh
                 'description' => 'Test product for testing'
             );
             
+            $cart_items[] = array(
+                'product_id' => 0,
+                'variation_id' => 0,
+                'quantity' => 1,
+                'name' => 'Test Product',
+                'subtotal' => 10.00,
+                'total' => 10.00,
+                'subtotal_tax' => 0,
+                'total_tax' => 0,
+                'taxes' => array(),
+                'variation' => array(),
+                'meta_data' => array()
+            );
+            
             $cart_subtotal = 10.00;
         } else {
-
-// Create a session key to store the order ID for hook reference
-$session_order_key = 'wpppc_temp_order_id';
-WC()->session->set($session_order_key, $order->get_id());
-
-// Process cart items with proper hook triggering
-foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
-    $product = $cart_item['data'];
-    
-    // Get product details
-    $name = $product->get_name();
-    $quantity = $cart_item['quantity'];
-    $price = $cart_item['line_subtotal'] / $quantity;
-    $tax = $cart_item['line_tax'] / $quantity;
-    
-    // Create the line item
-    $item = new WC_Order_Item_Product();
-    
-    // Set basic properties
-    $item->set_props(array(
-        'product_id'   => $product->get_id(),
-        'variation_id' => !empty($cart_item['variation_id']) ? $cart_item['variation_id'] : 0,
-        'quantity'     => $quantity,
-        'subtotal'     => $cart_item['line_subtotal'],
-        'total'        => $cart_item['line_total'],
-        'subtotal_tax' => isset($cart_item['line_subtotal_tax']) ? $cart_item['line_subtotal_tax'] : 0,
-        'total_tax'    => isset($cart_item['line_tax']) ? $cart_item['line_tax'] : 0,
-        'taxes'        => isset($cart_item['line_tax_data']) ? $cart_item['line_tax_data'] : array(),
-    ));
-    
-    $item->set_name($product->get_name());
-    
-    // Add variation data
-    if (!empty($cart_item['variation'])) {
-        foreach ($cart_item['variation'] as $meta_name => $meta_value) {
-            $item->add_meta_data(str_replace('attribute_', '', $meta_name), $meta_value, true);
-        }
-    }
-    
-    // CRITICAL: Run the WooCommerce hook that WAPF and other plugins use
-    // to add their custom data to order line items
-    do_action('woocommerce_checkout_create_order_line_item', $item, $cart_item_key, $cart_item, $order);
-    
-    // Add the item to the order
-    $order->add_item($item);
-    
-    // Add to line items array for PayPal
-    $line_items[] = array(
-        'name' => $name,
-        'quantity' => $quantity,
-        'unit_price' => wc_format_decimal($price, 2),
-        'tax_amount' => wc_format_decimal(isset($cart_item['line_tax']) ? $cart_item['line_tax'] : 0, 2),
-        'sku' => $product->get_sku() ? $product->get_sku() : 'SKU-' . $product->get_id(),
-        'description' => $product->get_short_description() ? substr(wp_strip_all_tags($product->get_short_description()), 0, 127) : '',
-        'product_id' => $product->get_id()
-    );
-    
-    // Pass server ID to the mapping function
-    $line_items = add_product_mappings_to_items($line_items, $server->id);
-    
-    $cart_subtotal += $cart_item['line_subtotal'];
-    $tax_total += isset($cart_item['line_tax']) ? $cart_item['line_tax'] : 0;
-}
-
-// Run the hook that WAPF might use after all items are added
-do_action('woocommerce_checkout_create_order', $order, array());
-
-// Trigger the order meta hook that some plugins use
-do_action('woocommerce_checkout_update_order_meta', $order->get_id(), array());
-
-// Clean up session
-WC()->session->__unset($session_order_key);
+            // Process real cart items
+            foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
+                $product = $cart_item['data'];
+                
+                // Get product details
+                $name = $product->get_name();
+                $quantity = $cart_item['quantity'];
+                $price = $cart_item['line_subtotal'] / $quantity;
+                $tax = $cart_item['line_tax'] / $quantity;
+                
+                // Store cart item data
+                $cart_items[] = array(
+                    'cart_item_key' => $cart_item_key,
+                    'product_id' => $product->get_id(),
+                    'variation_id' => !empty($cart_item['variation_id']) ? $cart_item['variation_id'] : 0,
+                    'quantity' => $quantity,
+                    'name' => $product->get_name(),
+                    'subtotal' => $cart_item['line_subtotal'],
+                    'total' => $cart_item['line_total'],
+                    'subtotal_tax' => isset($cart_item['line_subtotal_tax']) ? $cart_item['line_subtotal_tax'] : 0,
+                    'total_tax' => isset($cart_item['line_tax']) ? $cart_item['line_tax'] : 0,
+                    'taxes' => isset($cart_item['line_tax_data']) ? $cart_item['line_tax_data'] : array(),
+                    'variation' => !empty($cart_item['variation']) ? $cart_item['variation'] : array(),
+                    'cart_item' => $cart_item // Store full cart item for hooks later
+                );
+                
+                // Add to line items array for PayPal
+                $line_items[] = array(
+                    'name' => $name,
+                    'quantity' => $quantity,
+                    'unit_price' => wc_format_decimal($price, 2),
+                    'tax_amount' => wc_format_decimal(isset($cart_item['line_tax']) ? $cart_item['line_tax'] : 0, 2),
+                    'sku' => $product->get_sku() ? $product->get_sku() : 'SKU-' . $product->get_id(),
+                    'description' => $product->get_short_description() ? substr(wp_strip_all_tags($product->get_short_description()), 0, 127) : '',
+                    'product_id' => $product->get_id()
+                );
+                
+                $cart_subtotal += $cart_item['line_subtotal'];
+                $tax_total += isset($cart_item['line_tax']) ? $cart_item['line_tax'] : 0;
+            }
+            
+            // Pass server ID to the mapping function
+            $line_items = add_product_mappings_to_items($line_items, $server->id);
         }
         
-        // Set payment method
-        $order->set_payment_method('paypal_proxy');
+        // Calculate totals (mimicking WooCommerce calculation)
+        $total_amount = $cart_subtotal + $tax_total + $shipping_total + $shipping_tax;
         
-        // Calculate totals
-        $order->calculate_shipping();
-        $order->calculate_totals();
+        // Store all order data in transient (expires in 1 hour)
+        $order_data = array(
+            'temp_order_id' => $temp_order_id,
+            'temp_order_key' => $temp_order_key,
+            'server_id' => $server->id,
+            'billing_address' => $complete_billing,
+            'shipping_address' => $complete_shipping,
+            'shipping_items' => $shipping_items,
+            'chosen_shipping_methods' => $chosen_shipping_methods,
+            'cart_items' => $cart_items,
+            'line_items' => $line_items,
+            'subtotal' => $cart_subtotal,
+            'tax_total' => $tax_total,
+            'shipping_total' => $shipping_total,
+            'shipping_tax' => $shipping_tax,
+            'total_amount' => $total_amount,
+            'currency' => get_woocommerce_currency(),
+            'prices_include_tax' => wc_prices_include_tax(),
+            'tax_display_cart' => get_option('woocommerce_tax_display_cart'),
+            'tax_display_shop' => get_option('woocommerce_tax_display_shop'),
+            'created_time' => current_time('timestamp'),
+            'post_data' => $_POST // Store original POST data for any additional processing
+        );
         
-        // Store the server ID in the order meta
-        $order->update_meta_data('_wpppc_server_id', $server->id);
+        // Store in transient (1 hour expiration)
+        //set_transient('wpppc_temp_order_' . $temp_order_id, $order_data, HOUR_IN_SECONDS);
         
+        $transient_key = 'wpppc_temp_order_' . $temp_order_id;
+        $existing_data = get_transient($transient_key);
+        
+        if (!is_array($existing_data)) $existing_data = [];
+        
+        $order_data = array_merge($existing_data, $order_data);
+        
+        set_transient($transient_key, $order_data, HOUR_IN_SECONDS);
+        
+        // Get server credentials from the selected server object 
+        $proxy_url = $server->url;
+        $api_key = $server->api_key;
+        $api_secret = $server->api_secret;
+        $server_id = $server->id;
 
-        
-        // Set order status
-        $order->update_status('pending', __('Awaiting PayPal payment', 'woo-paypal-proxy-client'));
-        $order->save();
-        
-        
-        // Get the order ID
-$order_id = $order->get_id();
+        // Create order details array with all information needed by PayPal
+        $order_details = array(
+            'api_key' => $api_key,
+            'server_id' => $server_id,
+            'order_id' => $temp_order_id, // Use temp order ID
+            'test_data' => !empty($_POST['paypal_test_data']) ? 
+                sanitize_text_field($_POST['paypal_test_data']) : 'Order #' . $temp_order_id,
+            'shipping_address' => $complete_shipping,
+            'billing_address' => $complete_billing,
+            'line_items' => $line_items,
+            'shipping_amount' => $shipping_total,
+            'shipping_tax' => $shipping_tax,
+            'tax_total' => $tax_total + $shipping_tax,
+            'discount_total' => WC()->cart->get_discount_total(),
+            'currency' => get_woocommerce_currency(),
+            'prices_include_tax' => wc_prices_include_tax(),
+            'tax_display_cart' => get_option('woocommerce_tax_display_cart'),
+            'tax_display_shop' => get_option('woocommerce_tax_display_shop')
+        );
 
-// Get server credentials from the selected server object 
-$proxy_url = $server->url;
-$api_key = $server->api_key;
-$api_secret = $server->api_secret;
-$server_id = $server->id;
+        // Generate security hash for the request
+        $timestamp = time();
+        $hash_data = $timestamp . $temp_order_id . $api_key;
+        $hash = hash_hmac('sha256', $hash_data, $api_secret);
 
-// Create order details array with all information needed by PayPal
-$order_details = array(
-    'api_key' => $api_key,
-    'server_id' => $server_id,
-    'order_id' => $order_id,
-    'test_data' => !empty($_POST['paypal_test_data']) ? 
-        sanitize_text_field($_POST['paypal_test_data']) : 'Order #' . $order_id,
-    'shipping_address' => $complete_shipping,
-    'billing_address' => $complete_billing,
-    'line_items' => $line_items,
-    'shipping_amount' => $order->get_shipping_total(),
-    'shipping_tax' => $order->get_shipping_tax(),
-    'tax_total' => $order->get_cart_tax() + $order->get_shipping_tax(),
-    'discount_total' => $order->get_discount_total(),
-    'currency' => get_woocommerce_currency(),
-    'prices_include_tax' => wc_prices_include_tax(),
-    'tax_display_cart' => get_option('woocommerce_tax_display_cart'),
-    'tax_display_shop' => get_option('woocommerce_tax_display_shop')
-);
+        // Add security parameters
+        $order_details['timestamp'] = $timestamp;
+        $order_details['hash'] = $hash;
 
-// Generate security hash for the request
-$timestamp = time();
-$hash_data = $timestamp . $order_id . $api_key;
-$hash = hash_hmac('sha256', $hash_data, $api_secret);
-
-// Add security parameters
-$order_details['timestamp'] = $timestamp;
-$order_details['hash'] = $hash;
-
-// Send the order details to the storage endpoint
-if (!empty($proxy_url) && !empty($api_key)) {
-    error_log('PayPal Proxy Client - Sending order details to: ' . $proxy_url . '/wp-json/wppps/v1/store-test-data');
-    
-    $response = wp_remote_post(
-        $proxy_url . '/wp-json/wppps/v1/store-test-data',
-        array(
-            'method' => 'POST',
-            'timeout' => 30,
-            'headers' => array(
-                'Content-Type' => 'application/json',
-            ),
-            'body' => json_encode($order_details)
-        )
-    );
-    
-    if (is_wp_error($response)) {
-        error_log('PayPal Proxy Client - Error sending order details: ' . $response->get_error_message());
-    } else {
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-        error_log('PayPal Proxy Client - Data response: ' . print_r($body, true));
+        // Send the order details to the storage endpoint
+        if (!empty($proxy_url) && !empty($api_key)) {
+            error_log('PayPal Proxy Client - Sending order details to: ' . $proxy_url . '/wp-json/wppps/v1/store-test-data');
+            
+            $response = wp_remote_post(
+                $proxy_url . '/wp-json/wppps/v1/store-test-data',
+                array(
+                    'method' => 'POST',
+                    'timeout' => 30,
+                    'headers' => array(
+                        'Content-Type' => 'application/json',
+                    ),
+                    'body' => json_encode($order_details)
+                )
+            );
+            
+            if (is_wp_error($response)) {
+                error_log('PayPal Proxy Client - Error sending order details: ' . $response->get_error_message());
+            } else {
+                $body = json_decode(wp_remote_retrieve_body($response), true);
+                error_log('PayPal Proxy Client - Data response: ' . print_r($body, true));
+            }
+        } else {
+            error_log('PayPal Proxy Client - Missing proxy URL or API key, cannot send order details');
+        }
         
-        
-    }
-} else {
-    error_log('PayPal Proxy Client - Missing proxy URL or API key, cannot send order details');
-}
-        
-        $order_id = $order->get_id();
         if (WP_DEBUG) {
-            error_log('PayPal Proxy Client - Order created successfully: #' . $order_id);
+            error_log('PayPal Proxy Client - Temporary order data stored successfully: #' . $temp_order_id);
         }
         
-        // Return success with order details
+        // Return success with temporary order details (same structure as before)
         wp_send_json_success(array(
-            'order_id'   => $order_id,
-            'order_key'  => $order->get_order_key(),
+            'order_id'   => $temp_order_id,
+            'order_key'  => $temp_order_key,
             'proxy_data' => array(
                 'server_name' => $server->name,
                 'server_id' => $server->id,
-                'message' => 'Order created successfully'
+                'message' => 'Order data prepared successfully'
             ),
         ));
         
     } catch (Exception $e) {
-        error_log('PayPal Proxy Client - Error creating order: ' . $e->getMessage());
+        error_log('PayPal Proxy Client - Error preparing order: ' . $e->getMessage());
         if (WP_DEBUG) {
             error_log('PayPal Proxy Client - Error trace: ' . $e->getTraceAsString());
         }
         wp_send_json_error(array(
-            'message' => 'Failed to create order: ' . $e->getMessage()
+            'message' => 'Failed to prepare order: ' . $e->getMessage()
         ));
     }
     
@@ -844,6 +814,7 @@ function add_product_mappings_to_items($line_items, $server_id = 0) {
     return $line_items;
 }
 
+
 /**
  * AJAX handler for completing an order after payment
  */
@@ -862,14 +833,14 @@ function wpppc_complete_order_handler() {
         wp_die();
     }
     
-    $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+    $temp_order_id = isset($_POST['order_id']) ? sanitize_text_field($_POST['order_id']) : '';
     $paypal_order_id = isset($_POST['paypal_order_id']) ? sanitize_text_field($_POST['paypal_order_id']) : '';
     $transaction_id = isset($_POST['transaction_id']) ? sanitize_text_field($_POST['transaction_id']) : '';
     $server_id = isset($_POST['server_id']) ? intval($_POST['server_id']) : 0;
     
     wpppc_log("Initial server_id from request: $server_id");
     
-    if (!$order_id || !$paypal_order_id) {
+    if (!$temp_order_id || !$paypal_order_id) {
         error_log('PayPal Proxy - Invalid order data in completion request');
         wp_send_json_error(array(
             'message' => __('Invalid order data', 'woo-paypal-proxy-client')
@@ -877,48 +848,128 @@ function wpppc_complete_order_handler() {
         wp_die();
     }
     
-    $order = wc_get_order($order_id);
+    // Get the stored order data from transient
+    $order_data = get_transient('wpppc_temp_order_' . $temp_order_id);
     
-    if (!$server_id) {
-        $server_id = $order->get_meta('_wpppc_server_id', true);
-        wpppc_log("Retrieved server_id from order metadata: $server_id");
-    }
-    
-    if (!$order) {
-        error_log('PayPal Proxy - Order not found: ' . $order_id);
+    if (!$order_data) {
+        error_log('PayPal Proxy - Temporary order data not found or expired: ' . $temp_order_id);
         wp_send_json_error(array(
-            'message' => __('Order not found', 'woo-paypal-proxy-client')
+            'message' => __('Order data not found or expired', 'woo-paypal-proxy-client')
         ));
         wp_die();
     }
     
-     error_log('PayPal Proxy - Order total: ' . $order->get_total());
+    if (!$server_id && !empty($order_data['server_id'])) {
+        $server_id = $order_data['server_id'];
+        wpppc_log("Retrieved server_id from order data: $server_id");
+    }
     
     try {
         // Log order details
         if (WP_DEBUG) {
-            error_log('PayPal Proxy - Processing order: ' . $order_id . ', Status: ' . $order->get_status());
+            error_log('PayPal Proxy - Processing temp order: ' . $temp_order_id);
             error_log('PayPal Proxy - Server ID: ' . $server_id);
+            error_log('PayPal Proxy - Order total: ' . $order_data['total_amount']);
         }
         
-        // Check if payment is already completed to avoid duplicate processing
-        if ($order->is_paid()) {
-            error_log('PayPal Proxy - Order is already paid, redirecting to thank you page');
-            wp_send_json_success(array(
-                'redirect' => $order->get_checkout_order_received_url()
+        // NOW CREATE THE ACTUAL WOOCOMMERCE ORDER
+        $order = wc_create_order();
+        
+        // Set addresses
+        $order->set_address($order_data['billing_address'], 'billing');
+        $order->set_address($order_data['shipping_address'], 'shipping');
+        
+        // Add shipping items
+        if (!empty($order_data['shipping_items'])) {
+            foreach ($order_data['shipping_items'] as $shipping_item_data) {
+                $item = new WC_Order_Item_Shipping();
+                $item->set_props(array(
+                    'method_title' => $shipping_item_data['method_title'],
+                    'method_id'    => $shipping_item_data['method_id'],
+                    'total'        => $shipping_item_data['total'],
+                    'taxes'        => $shipping_item_data['taxes'],
+                    'instance_id'  => isset($shipping_item_data['instance_id']) ? $shipping_item_data['instance_id'] : '',
+                ));
+                
+                // Add any meta data
+                if (!empty($shipping_item_data['meta_data'])) {
+                    foreach ($shipping_item_data['meta_data'] as $key => $value) {
+                        $item->add_meta_data($key, $value, true);
+                    }
+                }
+                
+                $order->add_item($item);
+            }
+        }
+        
+        // Store chosen shipping methods for hook reference
+        if (!empty($order_data['chosen_shipping_methods'])) {
+            $order->update_meta_data('_wpppc_shipping_methods', $order_data['chosen_shipping_methods']);
+        }
+        
+        // Create a session key to store the order ID for hook reference
+        $session_order_key = 'wpppc_temp_order_id';
+        WC()->session->set($session_order_key, $order->get_id());
+        
+        // Add cart items with proper hook triggering
+        foreach ($order_data['cart_items'] as $cart_item_data) {
+            // Create the line item
+            $item = new WC_Order_Item_Product();
+            
+            // Set basic properties
+            $item->set_props(array(
+                'product_id'   => $cart_item_data['product_id'],
+                'variation_id' => $cart_item_data['variation_id'],
+                'quantity'     => $cart_item_data['quantity'],
+                'subtotal'     => $cart_item_data['subtotal'],
+                'total'        => $cart_item_data['total'],
+                'subtotal_tax' => $cart_item_data['subtotal_tax'],
+                'total_tax'    => $cart_item_data['total_tax'],
+                'taxes'        => $cart_item_data['taxes'],
             ));
-            wp_die();
+            
+            $item->set_name($cart_item_data['name']);
+            
+            // Add variation data
+            if (!empty($cart_item_data['variation'])) {
+                foreach ($cart_item_data['variation'] as $meta_name => $meta_value) {
+                    $item->add_meta_data(str_replace('attribute_', '', $meta_name), $meta_value, true);
+                }
+            }
+            
+            // CRITICAL: Run the WooCommerce hook that WAPF and other plugins use
+            // to add their custom data to order line items
+            if (!empty($cart_item_data['cart_item'])) {
+                do_action('woocommerce_checkout_create_order_line_item', $item, $cart_item_data['cart_item_key'], $cart_item_data['cart_item'], $order);
+            }
+            
+            // Add the item to the order
+            $order->add_item($item);
         }
         
-         // Update server information if provided
-          if ($server_id) {
-            update_post_meta($order->get_id(), '_wpppc_server_id', $server_id);
-        } else {
-            // If server_id wasn't provided, try to get it from order meta
-            $server_id = get_post_meta($order->get_id(), '_wpppc_server_id', true);
-        }
+        // Run the hook that WAPF might use after all items are added
+        do_action('woocommerce_checkout_create_order', $order, array());
         
-        // Complete the order payment
+        // Trigger the order meta hook that some plugins use
+        do_action('woocommerce_checkout_update_order_meta', $order->get_id(), array());
+        
+        // Clean up session
+        WC()->session->__unset($session_order_key);
+        
+        // Set payment method
+        $order->set_payment_method('paypal_proxy');
+        
+        // Calculate totals
+        $order->calculate_shipping();
+        $order->calculate_totals();
+        
+        // Store the server ID in the order meta
+        $order->update_meta_data('_wpppc_server_id', $server_id);
+        
+        // Store the temporary order ID for reference
+        $order->update_meta_data('_wpppc_temp_order_id', $temp_order_id);
+        
+        // Complete the order payment immediately (since payment is already confirmed)
         $order->payment_complete($transaction_id);
         
         $gateway = new WPPPC_PayPal_Gateway();
@@ -930,7 +981,6 @@ function wpppc_complete_order_handler() {
         error_log('WPPPC Debug: Retrieved seller protection from endpoint: ' . $seller_protection);
         
         // Add order note
-        $server_note = $server_id ? " (Server ID: $server_id)" : "";
         $order->add_order_note(
             sprintf(
                 __('PayPal payment completed. PayPal Order ID: %s, Transaction ID: %s, Server ID: %s, Seller Protection: %s, Account Status: %s', 'woo-paypal-proxy-client'),
@@ -949,9 +999,16 @@ function wpppc_complete_order_handler() {
         update_post_meta($order->get_id(), '_paypal_order_id', $paypal_order_id);
         update_post_meta($order->get_id(), '_paypal_transaction_id', $transaction_id);
         update_post_meta($order->get_id(), '_paypal_seller_protection', $seller_protection);
-         update_post_meta($order->get_id(), '_paypal_account_status', $account_status);
+        update_post_meta($order->get_id(), '_paypal_account_status', $account_status);
         
-        $server_id = get_post_meta($order->get_id(), '_wpppc_server_id', true);
+        if (!empty($order_data['funding_source'])) {
+            update_post_meta($order->get_id(), '_wpppc_funding_source', sanitize_text_field($order_data['funding_source']));
+        }
+        
+        // Save the order
+        $order->save();
+        
+        // Mirror order to server
         $api_handler = new WPPPC_API_Handler($server_id);
         $mirror_response = $api_handler->mirror_order_to_server($order, $paypal_order_id, $transaction_id);
         
@@ -964,7 +1021,7 @@ function wpppc_complete_order_handler() {
             require_once WPPPC_PLUGIN_DIR . 'includes/class-server-manager.php';
             $server_manager = WPPPC_Server_Manager::get_instance();
             
-            // Update usage with order amount - MAKE SURE THIS CALL WORKS
+            // Update usage with order amount
             $result = $server_manager->add_server_usage($server_id, $order_amount);
             error_log('PayPal Proxy - Result of add_server_usage: ' . ($result ? 'success' : 'failed'));
             
@@ -973,21 +1030,31 @@ function wpppc_complete_order_handler() {
             error_log('PayPal Proxy - No server_id found, cannot add usage');
         }
         
+        // Clean up the transient now that we have a real order
+        delete_transient('wpppc_temp_order_' . $temp_order_id);
+        
         // Empty cart
         WC()->cart->empty_cart();
         
         // Log the success
         if (WP_DEBUG) {
-            error_log('PayPal Proxy - Order successfully completed: ' . $order_id);
+            error_log('PayPal Proxy - Order successfully created and completed: ' . $order->get_id());
         }
         
         // Return success with redirect URL
         $redirect_url = $order->get_checkout_order_received_url();
         wp_send_json_success(array(
-            'redirect' => $redirect_url
+            'redirect' => $redirect_url,
+            'order_id' => $order->get_id(), // Return real order ID
+            'temp_order_id' => $temp_order_id // Also return temp ID for reference
         ));
+        
     } catch (Exception $e) {
         error_log('PayPal Proxy - Exception during order completion: ' . $e->getMessage());
+        
+        // Clean up transient on error
+        delete_transient('wpppc_temp_order_' . $temp_order_id);
+        
         wp_send_json_error(array(
             'message' => 'Error completing order: ' . $e->getMessage()
         ));
@@ -1600,18 +1667,25 @@ add_action('wp_ajax_nopriv_wpppc_source_card', 'handle_source_card');
 
 function handle_source_card() {
     check_ajax_referer('wpppc-nonce', 'nonce');
-    
-    $order_id = intval($_POST['order_id'] ?? 0);
+
+    $temp_order_id = sanitize_text_field($_POST['order_id'] ?? '');
     $source = sanitize_text_field($_POST['funding_source'] ?? '');
-    
-    error_log('Received order_id: ' . $order_id);
+
+    error_log('Received temp_order_id: ' . $temp_order_id);
     error_log('Received funding_source: ' . $source);
-    
-    if ($order_id && !empty($source)) {
-        update_post_meta($order_id, '_wpppc_funding_source', $source);
-        wp_send_json_success('Funding source saved: ' . $source);
+
+    if ($temp_order_id && !empty($source)) {
+        $transient_key = 'wpppc_temp_order_' . $temp_order_id;
+        $order_data = get_transient($transient_key);
+
+        if (!is_array($order_data)) $order_data = [];
+
+        $order_data['funding_source'] = $source;
+
+        set_transient($transient_key, $order_data, HOUR_IN_SECONDS);
+        wp_send_json_success('Funding source saved to transient.');
     }
-    
+
     wp_send_json_error('Missing or invalid data');
 }
 
