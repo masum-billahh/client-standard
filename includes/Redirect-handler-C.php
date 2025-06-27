@@ -11,7 +11,8 @@ function handle_external_cart_data() {
 
     // Clear existing cart
     WC()->cart->empty_cart();
-
+    
+    WC()->session->set('is_external_cart', true);
     // Process cart data
     $cart_data = json_decode(stripslashes($_POST['cart_data']), true);
     error_log('Raw cart_data: ' . print_r($_POST['cart_data'], true));
@@ -276,7 +277,7 @@ function show_all_custom_cart_item_data($item_data, $cart_item) {
     );
 
     // Handle WAPF fields (structured array) - only if they have actual values
-    if (!empty($cart_item['wapf']) && is_array($cart_item['wapf'])) {
+    if (WC()->session->get('is_external_cart') && !empty($cart_item['wapf']) && is_array($cart_item['wapf'])) {
         foreach ($cart_item['wapf'] as $field) {
             $label = sanitize_text_field($field['label']);
             $value = sanitize_text_field($field['value']);
@@ -346,7 +347,7 @@ function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $or
     );
     
     // Save WAPF fields if present
-    if (!empty($values['wapf']) && is_array($values['wapf'])) {
+    if (WC()->session->get('is_external_cart') && !empty($values['wapf']) && is_array($values['wapf'])) {
         foreach ($values['wapf'] as $index => $field) {
             if (!empty($field['label']) && !empty($field['value'])) {
                 $clean_label = sanitize_text_field($field['label']);
