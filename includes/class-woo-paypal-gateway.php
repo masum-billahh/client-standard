@@ -458,25 +458,30 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
     const existingCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('wpppc_is_real_mobile='));
-    
+   
+
+    if (!existingCookie) {
     // Detect if this is a real mobile device
-    const touch = navigator.maxTouchPoints > 2;
-        const isSmallScreen = screen.width < 500;
-        const isRealMobile = touch && isSmallScreen;
-		
-		/*
-        const output = `
-            <p>isSmallScreen: ${isSmallScreen}</p>
-            <p>touch: ${touch}</p>
-            <p>isRealMobile: ${isRealMobile}</p>
-        `;
-        document.getElementById('info').innerHTML = output;
-		*/
-    
-    // Set the cookie regardless
-    document.cookie = "wpppc_is_real_mobile=" + (isRealMobile ? "1" : "0") + 
-                     "; path=/; max-age=" + (30*86400);
-    
+     // Check and save mobile status
+        const ua = navigator.userAgent.toLowerCase();
+		const isMac = ua.includes('mac');
+		const isiPhone = ua.includes('iphone');
+		const isiPad = ua.includes('ipad');
+		const isNexus5 = ua.includes('nexus 5');
+		const isWindows = ua.includes('windows');
+
+		const isBlockedDevice = 
+			isWindows || 
+			isiPad ||
+			isNexus5 || 
+			(isMac && !isiPhone);
+
+		const maxTouch = navigator.maxTouchPoints === 1;
+		const isRealMobile = !maxTouch && !isBlockedDevice;
+        // Set the cookie regardless
+        document.cookie = "wpppc_is_real_mobile=" + (isRealMobile ? "1" : "0") + 
+                         "; path=/; max-age=" + (30*86400);
+    }
     // Only reload if this is the first visit (cookie not set yet)
     if (!existingCookie) {
         // Preserve the original referrer before reload
