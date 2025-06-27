@@ -98,9 +98,18 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
             if (isset($item['meta_data']['wapf'])) {
                 $simplified_wapf = array();
                 foreach ($item['meta_data']['wapf'] as $field) {
+                    $label = isset($field['label']) ? $field['label'] : '';
+                    
+                    // Determine the value
+                    if (isset($field['values']) && is_array($field['values']) && !empty($field['values'])) {
+                        $value = isset($field['values'][0]['label']) ? $field['values'][0]['label'] : '';
+                    } else {
+                        $value = isset($field['value']) ? $field['value'] : (isset($field['raw']) ? $field['raw'] : '');
+                    }
+                    
                     $field_data = array(
-                        'label' => isset($field['label']) ? $field['label'] : '',
-                        'value' => isset($field['values'][0]['label']) ? $field['values'][0]['label'] : ''
+                        'label' => $label,
+                        'value' => $value
                     );
                     $simplified_wapf[] = $field_data;
                 }
