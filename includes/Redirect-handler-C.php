@@ -108,7 +108,13 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
             }
             
             // Fields to exclude
-            $exclude_fields = array('wapf_key', 'wapf_field_groups', 'variation', 'wapf_item_price', 'line_tax_data', 'line_subtotal', 'line_subtotal_tax', 'line_total', 'line_tax');
+            $exclude_fields = array('wapf_key', 'wapf_field_groups', 'variation', 'wapf_item_price', 'line_tax_data', 'line_subtotal', 'line_subtotal_tax', 'line_total', 'line_tax','tmcartepo', 'tmcartfee',
+                                'tmpost_data', 'tmdata', 'tmhasepo', 'addons',
+                                'tm_cart_item_key', 'tm_epo_product_original_price',
+                                'tm_epo_options_prices', 'tm_epo_product_price_with_options',
+                                'tm_epo_options_static_prices', 'associated_products_price',
+                                'tm_epo_options_total_for_cumulative', 'tm_epo_options_static_prices_first',
+                                'tm_epo_set_product_price_with_options');
             
             // Add other custom fields (excluding system fields and cost fields)
             foreach ($item['meta_data'] as $key => $value) {
@@ -117,6 +123,12 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
                     error_log("Added custom field: $key = " . print_r($value, true));
                 }
             }
+            
+            // **Add tm_options to cart item data**
+                if (isset($item['tm_options']) && is_array($item['tm_options'])) {
+                    $cart_item_data['tm_options'] = $item['tm_options'];
+                    error_log("Added tm_options: " . print_r($item['tm_options'], true));
+                }
 
             $cart_item_key = '';
 
@@ -226,7 +238,13 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
 add_filter('woocommerce_get_item_data', 'show_all_custom_cart_item_data', 10, 2);
 
 function show_all_custom_cart_item_data($item_data, $cart_item) {
-    $exclude_keys = array('product_id', 'variation_id', 'wapf', 'key', 'data_hash', 'quantity', 'external_product_id', 'external_variation_id', 'image_url', 'custom_name', 'external_item_index'); // exclude Woo fields
+    $exclude_keys = array('product_id', 'variation_id', 'wapf', 'key', 'data_hash', 'quantity', 'external_product_id', 'external_variation_id', 'image_url', 'custom_name', 'external_item_index','tmcartepo', 'tmcartfee',
+                                'tmpost_data', 'tmdata', 'tmhasepo', 'addons',
+                                'tm_cart_item_key', 'tm_epo_product_original_price',
+                                'tm_epo_options_prices', 'tm_epo_product_price_with_options',
+                                'tm_epo_options_static_prices', 'associated_products_price',
+                                'tm_epo_options_total_for_cumulative', 'tm_epo_options_static_prices_first',
+                                'tm_epo_set_product_price_with_options'); // exclude Woo fields
     $exclude_labels = array(
         'Unique Key',
         'Key',
@@ -238,7 +256,14 @@ function show_all_custom_cart_item_data($item_data, $cart_item) {
         'Line Tax',
         'external_product_id',   
         'external_variation_id', 
-        'image_url'
+        'image_url',
+        'tmcartepo', 'tmcartfee',
+                                'tmpost_data', 'tmdata', 'tmhasepo', 'addons',
+                                'tm_cart_item_key', 'tm_epo_product_original_price',
+                                'tm_epo_options_prices', 'tm_epo_product_price_with_options',
+                                'tm_epo_options_static_prices', 'associated_products_price',
+                                'tm_epo_options_total_for_cumulative', 'tm_epo_options_static_prices_first',
+                                'tm_epo_set_product_price_with_options'
     );
 
     // Handle WAPF fields (structured array) - only if they have actual values
@@ -254,6 +279,15 @@ function show_all_custom_cart_item_data($item_data, $cart_item) {
                     'value' => $value,
                 );
             }
+        }
+    }
+    
+    if (isset($cart_item['tm_options']) && is_array($cart_item['tm_options'])) {
+        foreach ($cart_item['tm_options'] as $option) {
+            $item_data[] = array(
+                'key'   => $option['label'],
+                'value' => $option['value'],
+            );
         }
     }
 
@@ -292,7 +326,14 @@ function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $or
         'line_subtotal_tax', 
         'line_total', 
         'line_tax',
-        'quantity'
+        'quantity',
+        'tmcartepo', 'tmcartfee',
+                                'tmpost_data', 'tmdata', 'tmhasepo', 'addons',
+                                'tm_cart_item_key', 'tm_epo_product_original_price',
+                                'tm_epo_options_prices', 'tm_epo_product_price_with_options',
+                                'tm_epo_options_static_prices', 'associated_products_price',
+                                'tm_epo_options_total_for_cumulative', 'tm_epo_options_static_prices_first',
+                                'tm_epo_set_product_price_with_options'
     );
     
     // Save WAPF fields if present
@@ -302,6 +343,12 @@ function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $or
                 $clean_label = sanitize_text_field($field['label']);
                 $item->add_meta_data($clean_label, sanitize_text_field($field['value']));
             }
+        }
+    }
+    
+    if (isset($values['tm_options']) && is_array($values['tm_options'])) {
+        foreach ($values['tm_options'] as $option) {
+            $item->add_meta_data($option['label'], $option['value']);
         }
     }
     
@@ -993,3 +1040,5 @@ function override_order_item_name_in_admin($item_name, $item, $is_visible) {
     }
     return $item_name;
 }
+
+
