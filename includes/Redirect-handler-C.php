@@ -114,7 +114,7 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
                     );
                     $simplified_wapf[] = $field_data;
                 }
-                $cart_item_data['wapf'] = $simplified_wapf;
+                $cart_item_data['external_wapf'] = $simplified_wapf;
             }
             
             // Fields to exclude
@@ -277,8 +277,8 @@ function show_all_custom_cart_item_data($item_data, $cart_item) {
     );
 
     // Handle WAPF fields (structured array) - only if they have actual values
-    if (WC()->session->get('is_external_cart') && !empty($cart_item['wapf']) && is_array($cart_item['wapf'])) {
-        foreach ($cart_item['wapf'] as $field) {
+    if (WC()->session->get('is_external_cart') && !empty($cart_item['external_wapf']) && is_array($cart_item['external_wapf'])) {
+        foreach ($cart_item['external_wapf'] as $field) {
             $label = sanitize_text_field($field['label']);
             $value = sanitize_text_field($field['value']);
             
@@ -347,8 +347,8 @@ function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $or
     );
     
     // Save WAPF fields if present
-    if (WC()->session->get('is_external_cart') && !empty($values['wapf']) && is_array($values['wapf'])) {
-        foreach ($values['wapf'] as $index => $field) {
+    if (WC()->session->get('is_external_cart') && !empty($values['external_wapf']) && is_array($values['external_wapf'])) {
+        foreach ($values['external_wapf'] as $index => $field) {
             if (!empty($field['label']) && !empty($field['value'])) {
                 $clean_label = sanitize_text_field($field['label']);
                 $item->add_meta_data($clean_label, sanitize_text_field($field['value']));
