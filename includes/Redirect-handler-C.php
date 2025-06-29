@@ -424,9 +424,7 @@ function override_cart_item_name($product_name, $cart_item, $cart_item_key) {
 
 add_filter('woocommerce_order_item_display_meta_key', 'customize_order_item_meta_key_display', 10, 3);
 function customize_order_item_meta_key_display($display_key, $meta, $item) {
-	if (!WC()->session->get('is_external_cart')) {
-        return $display_key;
-    }
+	
     // Hide certain meta keys from display
     $hidden_keys = array(
         'Unique Key',
@@ -462,9 +460,7 @@ function customize_order_item_meta_key_display($display_key, $meta, $item) {
 
 add_filter('woocommerce_order_item_get_formatted_meta_data', 'filter_order_item_meta_data', 10, 2);
 function filter_order_item_meta_data($formatted_meta, $item) {
-	if (!WC()->session->get('is_external_cart')) {
-        return $filtered_meta; // Skip for non-external carts
-    }
+	
     $hidden_keys = array(
         'Unique Key',
         'Key',
@@ -843,9 +839,18 @@ function redirect_to_source_site_after_order() {
     if (!$order) return;
 
     $order_data = prepare_order_data_for_redirect($order);
+    error_log('session- we r here after preparoing order ');
     create_order_redirect_form($source_site, $order_data, $order_id);
-
+    error_log('session- we r here after redirecting ');
+    
     WC()->session->set('redirect_source_site', null);
+	WC()->session->__unset('is_external_cart');
+	WC()->session->__unset('external_pricing_data');
+    WC()->session->__unset('external_currency');
+    WC()->session->__unset('external_user_data');
+    WC()->session->__unset('source_site');
+    WC()->session->save_data();
+    //error_log('session- after redirect back to C thank u' . print_r(WC()->session->get_session_data(), true));
     exit;
 }
 
@@ -1102,12 +1107,13 @@ function override_order_item_name_in_admin($item_name, $item, $is_visible) {
 
 //check if cart gets empty after user comes from external then clear the external key
 add_action('woocommerce_cart_updated', function () {
-    if (WC()->cart->is_empty() && WC()->session->get('is_external_cart')) {
+    if (WC()->cart->is_empty()) {
         WC()->session->__unset('is_external_cart');
 		WC()->session->__unset('external_pricing_data');
         WC()->session->__unset('external_currency');
         WC()->session->__unset('external_user_data');
         WC()->session->__unset('source_site');
-		WC()->session->__unset('redirect_source_site');
+		WC()->session->set('redirect_source_site', null);
+		//error_log('we r checking if the cart is empty' . print_r(WC()->session->get_session_data(), true));
     }
 });
