@@ -1104,5 +1104,10 @@ function override_order_item_name_in_admin($item_name, $item, $is_visible) {
 add_action('woocommerce_cart_updated', function () {
     if (WC()->cart->is_empty() && WC()->session->get('is_external_cart')) {
         WC()->session->__unset('is_external_cart');
+		WC()->session->__unset('external_pricing_data');
+        WC()->session->__unset('external_currency');
+        WC()->session->__unset('external_user_data');
+        WC()->session->__unset('source_site');
+		WC()->session->__unset('redirect_source_site');
     }
 });
