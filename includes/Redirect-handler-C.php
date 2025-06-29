@@ -13,6 +13,11 @@ function handle_external_cart_data() {
     WC()->cart->empty_cart();
     
     WC()->session->set('is_external_cart', true);
+	if (isset($_POST['source_site'])) {
+        $source_site = sanitize_text_field($_POST['source_site']);
+		error_log('source site: ' . $source_site);
+        WC()->session->set('redirect_source_site', $source_site);
+    }
     // Process cart data
     $cart_data = json_decode(stripslashes($_POST['cart_data']), true);
     error_log('Raw cart_data: ' . print_r($_POST['cart_data'], true));
@@ -345,10 +350,6 @@ function show_all_custom_cart_item_data($item_data, $cart_item) {
 
     return $item_data;
 }
-
-
-
-
 
 add_action('woocommerce_checkout_create_order_line_item', 'save_custom_cart_data_to_order_item', 10, 4);
 
@@ -812,32 +813,23 @@ function prefill_checkout_from_external($checkout) {
 }
 
 
-
-// Store the source site URL when cart is received
-add_action('wp_ajax_nopriv_receive_external_cart', 'store_source_site_for_redirect', 5);
-add_action('wp_ajax_receive_external_cart', 'store_source_site_for_redirect', 5);
-
-function store_source_site_for_redirect() {
-    if (isset($_POST['source_site'])) {
-        $source_site = sanitize_text_field($_POST['source_site']);
-        WC()->session->set('redirect_source_site', $source_site);
-    }
-}
-
 // Redirect after order completion
 add_action('template_redirect', 'redirect_to_source_site_after_order');
 function redirect_to_source_site_after_order() {
+	error_log('redirect-before endpoint check ');
     if (!is_wc_endpoint_url('order-received') || !isset($_GET['key'])) return;
-
+error_log('redirect-after endpoint check ');
     $source_site = WC()->session->get('redirect_source_site');
     if (!$source_site) return;
+	error_log('redirect-after source  check ');
 
     $order_id = wc_get_order_id_by_order_key(sanitize_text_field($_GET['key']));
     if (!$order_id) return;
 
+	error_log('redirect-after order key  check ');
     $order = wc_get_order($order_id);
     if (!$order) return;
-
+error_log('redirect-after order  check ');
     $order_data = prepare_order_data_for_redirect($order);
     error_log('session- we r here after preparoing order ');
     create_order_redirect_form($source_site, $order_data, $order_id);
@@ -1106,14 +1098,14 @@ function override_order_item_name_in_admin($item_name, $item, $is_visible) {
 }
 
 //check if cart gets empty after user comes from external then clear the external key
-add_action('woocommerce_cart_updated', function () {
-    if (WC()->cart->is_empty()) {
-        WC()->session->__unset('is_external_cart');
+add_action('woocommerce_cart_item_removed', function ($removed_cart_item_key, $cart) {
+    if (WC()->cart->is_empty()  && WC()->session->get('is_external_cart')) {
+		WC()->session->__unset('is_external_cart');
 		WC()->session->__unset('external_pricing_data');
-        WC()->session->__unset('external_currency');
-        WC()->session->__unset('external_user_data');
-        WC()->session->__unset('source_site');
-		WC()->session->set('redirect_source_site', null);
+		WC()->session->__unset('external_currency');
+		WC()->session->__unset('external_user_data');
+		WC()->session->__unset('source_site');
+		WC()->session->__unset('redirect_source_site');
 		//error_log('we r checking if the cart is empty' . print_r(WC()->session->get_session_data(), true));
     }
-});
+}, 10, 2);
