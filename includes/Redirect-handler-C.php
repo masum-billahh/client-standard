@@ -33,6 +33,20 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
     // Handle mismatched quantities between cart items and product IDs
     $processed_product_ids = array();
     
+        $total_quantity = 0;
+        if (!empty($cart_data['items'])) {
+            foreach ($cart_data['items'] as $item) {
+                $total_quantity += intval($item['quantity']);
+            }
+        }
+        
+        $discount_per_unit = 0;
+        if (is_fox_currency_active() && !empty($cart_data['items'][0]['discount']) && $total_quantity > 0) {
+            $discount_per_unit = floatval($cart_data['items'][0]['discount']) / $total_quantity;
+        }
+
+//error_log( 'discount:' .  $discount_per_unit);
+    
     foreach ($cart_data['items'] as $index => $item) {
         $external_product_id = intval($item['product_id']);
         $quantity = intval($item['quantity']);
@@ -198,7 +212,7 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
                 }
                 
                 // Calculate final price
-                $final_price = $base_price + $options_total;
+                $final_price = $base_price + $options_total - $discount_per_unit; 
                 
                 error_log('FOX active or line_total unavailable - Using calculated price: ' . $final_price);
             }
