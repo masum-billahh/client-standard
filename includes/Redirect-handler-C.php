@@ -256,6 +256,11 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
 add_filter('woocommerce_get_item_data', 'show_all_custom_cart_item_data', 10, 2);
 
 function show_all_custom_cart_item_data($item_data, $cart_item) {
+    
+    if (!WC()->session->get('is_external_cart')) {
+        return $item_data; // Skip for non-external carts
+    }
+    
     $exclude_keys = array('product_id', 'variation_id', 'wapf', 'key', 'data_hash', 'quantity', 'external_product_id', 'external_variation_id', 'image_url', 'custom_name', 'external_item_index','tmcartepo', 'tmcartfee',
                                 'tmpost_data', 'tmdata', 'tmhasepo', 'addons',
                                 'tm_cart_item_key', 'tm_epo_product_original_price',
@@ -335,6 +340,9 @@ add_action('woocommerce_checkout_create_order_line_item', 'save_custom_cart_data
 
 
 function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $order) {
+    if (!WC()->session->get('is_external_cart')) {
+        return; // Skip for non-external carts
+    }
     $exclude_keys = array(
         'product_id', 
         'variation_id', 
@@ -391,6 +399,9 @@ function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $or
 }
 add_filter('woocommerce_cart_item_name', 'override_cart_item_name', 10, 3);
 function override_cart_item_name($product_name, $cart_item, $cart_item_key) {
+    if (!WC()->session->get('is_external_cart')) {
+        return $product_name; // Skip for non-external carts
+    }
     if (isset($cart_item['custom_name'])) {
         return esc_html($cart_item['custom_name']);
     }
@@ -399,6 +410,9 @@ function override_cart_item_name($product_name, $cart_item, $cart_item_key) {
 
 add_filter('woocommerce_order_item_display_meta_key', 'customize_order_item_meta_key_display', 10, 3);
 function customize_order_item_meta_key_display($display_key, $meta, $item) {
+	if (!WC()->session->get('is_external_cart')) {
+        return $display_key;
+    }
     // Hide certain meta keys from display
     $hidden_keys = array(
         'Unique Key',
@@ -434,6 +448,9 @@ function customize_order_item_meta_key_display($display_key, $meta, $item) {
 
 add_filter('woocommerce_order_item_get_formatted_meta_data', 'filter_order_item_meta_data', 10, 2);
 function filter_order_item_meta_data($formatted_meta, $item) {
+	if (!WC()->session->get('is_external_cart')) {
+        return $filtered_meta; // Skip for non-external carts
+    }
     $hidden_keys = array(
         'Unique Key',
         'Key',
@@ -473,6 +490,7 @@ function filter_order_item_meta_data($formatted_meta, $item) {
 // filter to hide unwanted meta from order item display
 add_filter('woocommerce_order_item_display_meta_value', 'hide_unwanted_order_meta', 10, 3);
 function hide_unwanted_order_meta($display_value, $meta, $item) {
+	
     // List of meta keys to hide completely
     $hidden_keys = array(
         'Unique Key',
@@ -936,6 +954,9 @@ function create_order_redirect_form($source_site, $order_data, $order_id) {
 add_filter('woocommerce_cart_item_thumbnail', 'override_cart_item_thumbnail', 10, 3);
 
 function override_cart_item_thumbnail($thumbnail, $cart_item, $cart_item_key) {
+    if (!WC()->session->get('is_external_cart')) {
+        return $thumbnail;
+    }
     // Check if the cart item has a custom image_url
     if (isset($cart_item['image_url'])) {
         // Return an img tag with the custom image_url
@@ -958,6 +979,7 @@ add_action('woocommerce_before_calculate_totals', 'set_custom_cart_prices', 10, 
 function set_custom_cart_prices($cart) {
     if (is_admin() && !defined('DOING_AJAX')) return;
     if (did_action('woocommerce_before_calculate_totals') >= 2) return;
+    if (!WC()->session->get('is_external_cart')) return;
 
     $external_pricing_data = WC()->session->get('external_pricing_data');
 
@@ -975,6 +997,9 @@ add_filter('woocommerce_cart_item_price', 'override_cart_item_price', 10, 3);
 add_filter('woocommerce_cart_item_subtotal', 'override_cart_item_subtotal', 10, 3);
 
 function override_cart_item_price($price, $cart_item, $cart_item_key) {
+    if (!WC()->session->get('is_external_cart')) {
+        return $price;
+    }
     $external_pricing_data = WC()->session->get('external_pricing_data');
     
     if (isset($external_pricing_data[$cart_item_key]['price'])) {
@@ -1059,4 +1084,9 @@ function override_order_item_name_in_admin($item_name, $item, $is_visible) {
     return $item_name;
 }
 
-
+//check if cart gets empty after user comes from external then clear the external key
+add_action('woocommerce_cart_updated', function () {
+    if (WC()->cart->is_empty() && WC()->session->get('is_external_cart')) {
+        WC()->session->__unset('is_external_cart');
+    }
+});
