@@ -988,6 +988,7 @@ function save_custom_cart_data_to_order($item, $cart_item_key, $values, $order) 
     }
 }
 
+
 add_action('woocommerce_before_calculate_totals', 'set_custom_cart_prices', 10, 1);
 
 function set_custom_cart_prices($cart) {
@@ -1005,6 +1006,7 @@ function set_custom_cart_prices($cart) {
     }
 }
 
+/*
 
 //cart-specific hooks 
 add_filter('woocommerce_cart_item_price', 'override_cart_item_price', 10, 3);
@@ -1038,7 +1040,7 @@ function override_cart_item_subtotal($subtotal, $cart_item, $cart_item_key) {
     
     return $subtotal;
 }
-
+*/
 //api to validate product exist
 add_action('rest_api_init', function () {
     register_rest_route('cart-redirector/v1', '/validate-products', [
