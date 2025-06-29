@@ -184,9 +184,17 @@ if (!empty($cart_data) && isset($cart_data['items'])) {
                     $base_price = floatval($item['regular_price']);
                 }
                 
+                  
                 // Get options total if available
                 if (!empty($item['meta_data']['wapf_item_price']['options_total'])) {
                     $options_total = floatval($item['meta_data']['wapf_item_price']['options_total']);
+                }elseif (!empty($item['tm_options']) && is_array($item['tm_options'])) {
+                    $options_total = 0;
+                    foreach ($item['tm_options'] as $option) {
+                        if (isset($option['price'])) {
+                            $options_total += floatval($option['price']);
+                        }
+                    }
                 }
                 
                 // Calculate final price
