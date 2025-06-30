@@ -1093,37 +1093,78 @@ function override_order_item_name_in_admin($item_name, $item, $is_visible) {
             $item_name = esc_html($custom_name);
         }
 
-        $image_url = $item->get_meta('_image_url');
-        if (!empty($image_url)) {
-            $item_name = '<img src="' . esc_url($image_url) . '" style="max-width:50px;vertical-align:middle;margin-right:8px;"> ' . $item_name;
-            //echo '<style>.wc-order-item-thumbnail { display: none !important; }</style>';
-        }
     }
     return $item_name;
 }
 
-add_action('admin_head', function () {
-    if ( ! is_admin() ) return;
+add_filter('woocommerce_admin_order_item_thumbnail', 'override_order_item_thumbnail_in_admin', 10, 3);
 
-    // Try to get order ID from common params
-    $order_id = 0;
-    if (isset($_GET['post'])) {
-        $order_id = intval($_GET['post']);
-    } elseif (isset($_GET['id'])) {
-        $order_id = intval($_GET['id']);
-    }
-    if (!$order_id) return;
-
-    $order = wc_get_order($order_id);
-    if (!$order) return;
-
-    foreach ($order->get_items() as $item) {
-        if ($item->get_meta('_image_url')) {
-            echo '<style>.wc-order-item-thumbnail { display: none !important; }</style>';
-            break;
+function override_order_item_thumbnail_in_admin($thumbnail, $item_id, $item) {
+    if (is_admin()) {
+        $image_url = $item->get_meta('_image_url');
+        if (!empty($image_url)) {
+            $thumbnail = '<img src="' . esc_url($image_url) . '" style="max-width:50px; height:auto;" />';
         }
     }
-});
+    return $thumbnail;
+}
+
+add_action('woocommerce_email_order_details', 'setup_custom_email_images', 1, 4);
+function setup_custom_email_images($order, $sent_to_admin, $plain_text, $email) {
+    if (!$plain_text) {
+        add_filter('woocommerce_order_item_thumbnail', 'force_custom_email_thumbnail', 20, 2);
+    }
+}
+
+function force_custom_email_thumbnail($thumbnail, $item) {
+    $image_url = $item->get_meta('_image_url');
+    if (!empty($image_url)) {
+        $thumbnail = '<img src="' . esc_url($image_url) . '" style="max-width:64px; height:auto; border:0;" alt="Product Image" />';
+    }
+    return $thumbnail;
+}
+
+add_filter('woocommerce_order_item_thumbnail', 'override_order_item_thumbnail_in_emails', 10, 2);
+function override_order_item_thumbnail_in_emails($thumbnail, $item) {
+    // Check if we're in an email context
+    if (defined('WOOCOMMERCE_EMAIL') || (function_exists('wc_get_email_type_instance') && wc_get_email_type_instance())) {
+        $image_url = $item->get_meta('_image_url');
+        if (!empty($image_url)) {
+            $thumbnail = '<img src="' . esc_url($image_url) . '" style="max-width:64px; height:auto;" alt="Product Image" />';
+        }
+    }
+    return $thumbnail;
+}
+
+
+// REST API 
+add_filter('woocommerce_rest_prepare_shop_order_object', 'force_custom_images_in_api', 50, 3);
+function force_custom_images_in_api($response, $order, $request) {
+    $data = $response->get_data();
+    
+    if (isset($data['line_items']) && is_array($data['line_items'])) {
+        foreach ($data['line_items'] as $index => $line_item_data) {
+            if (isset($line_item_data['id'])) {
+                $item = $order->get_item($line_item_data['id']);
+                if ($item) {
+                    $custom_image = $item->get_meta('_image_url');
+                    if (!empty($custom_image)) {
+                        $data['line_items'][$index]['image'] = [
+                            'id' => 0,
+                            'src' => $custom_image,
+                            'name' => $item->get_name(),
+                            'alt' => $item->get_name()
+                        ];
+                    }
+                }
+            }
+        }
+        $response->set_data($data);
+    }
+    
+    return $response;
+}
+
 
 //check if cart gets empty after user comes from external then clear the external key
 add_action('woocommerce_cart_item_removed', function ($removed_cart_item_key, $cart) {
