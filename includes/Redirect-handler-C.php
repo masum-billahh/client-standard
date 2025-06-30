@@ -1083,19 +1083,47 @@ function validate_cart_redirector_product_ids($request) {
 }
 
 
+
 add_filter('woocommerce_order_item_name', 'override_order_item_name_in_admin', 10, 3);
 
 function override_order_item_name_in_admin($item_name, $item, $is_visible) {
-    // Check if in admin context
     if (is_admin()) {
-        // Get the custom name from order item meta
         $custom_name = $item->get_meta('Custom Name');
         if (!empty($custom_name)) {
-            return esc_html($custom_name);
+            $item_name = esc_html($custom_name);
+        }
+
+        $image_url = $item->get_meta('_image_url');
+        if (!empty($image_url)) {
+            $item_name = '<img src="' . esc_url($image_url) . '" style="max-width:50px;vertical-align:middle;margin-right:8px;"> ' . $item_name;
+            //echo '<style>.wc-order-item-thumbnail { display: none !important; }</style>';
         }
     }
     return $item_name;
 }
+
+add_action('admin_head', function () {
+    if ( ! is_admin() ) return;
+
+    // Try to get order ID from common params
+    $order_id = 0;
+    if (isset($_GET['post'])) {
+        $order_id = intval($_GET['post']);
+    } elseif (isset($_GET['id'])) {
+        $order_id = intval($_GET['id']);
+    }
+    if (!$order_id) return;
+
+    $order = wc_get_order($order_id);
+    if (!$order) return;
+
+    foreach ($order->get_items() as $item) {
+        if ($item->get_meta('_image_url')) {
+            echo '<style>.wc-order-item-thumbnail { display: none !important; }</style>';
+            break;
+        }
+    }
+});
 
 //check if cart gets empty after user comes from external then clear the external key
 add_action('woocommerce_cart_item_removed', function ($removed_cart_item_key, $cart) {
