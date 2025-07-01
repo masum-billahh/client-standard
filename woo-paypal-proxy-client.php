@@ -1082,6 +1082,7 @@ function wpppc_log($message) {
 
 
 function wpppc_check_decimal_schema() {
+    if (get_option('wpppc_decimal_patch') === '1.1.0') return;
     global $wpdb;
     $table_name = $wpdb->prefix . 'wpppc_proxy_servers';
     
@@ -1129,6 +1130,7 @@ function wpppc_check_decimal_schema() {
     } else {
         error_log('Schema Check - Table not found: ' . $table_name);
     }
+    update_option('wpppc_decimal_patch', '1.1.0');
 }
 
 
