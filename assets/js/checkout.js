@@ -216,6 +216,21 @@ function validateCheckoutFieldsClient() {
             // Skip if no field name
             if (!fieldName) return;
             
+            // Check if field is visible and relevant
+            const isFieldVisible = $row.is(':visible') && $field.is(':visible');
+            const isShippingField = fieldName.includes('shipping_');
+            const shipToDifferentAddress = $('input[name="ship_to_different_address"]').is(':checked');
+            
+            // Skip shipping fields if "ship to different address" is unchecked
+            if (isShippingField && !shipToDifferentAddress) {
+                return;
+            }
+            
+            // Skip if field is not visible
+            if (!isFieldVisible) {
+                return;
+            }
+            
             // Check if field is required
             const isRequired = $row.hasClass('validate-required') || $field.prop('required');
             
