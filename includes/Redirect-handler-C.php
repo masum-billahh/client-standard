@@ -276,7 +276,7 @@ add_filter('woocommerce_get_item_data', 'show_all_custom_cart_item_data', 10, 2)
 
 function show_all_custom_cart_item_data($item_data, $cart_item) {
     
-    if (!WC()->session->get('is_external_cart')) {
+    if (!WC()->session || !method_exists(WC()->session, 'get') || !WC()->session->get('is_external_cart')) {
         return $item_data; // Skip for non-external carts
     }
     
@@ -355,7 +355,7 @@ add_action('woocommerce_checkout_create_order_line_item', 'save_custom_cart_data
 
 
 function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $order) {
-    if (!WC()->session->get('is_external_cart')) {
+    if (!WC()->session || !WC()->session->get('is_external_cart')) {
         return; // Skip for non-external carts
     }
     $exclude_keys = array(
@@ -414,7 +414,7 @@ function save_custom_cart_data_to_order_item($item, $cart_item_key, $values, $or
 }
 add_filter('woocommerce_cart_item_name', 'override_cart_item_name', 10, 3);
 function override_cart_item_name($product_name, $cart_item, $cart_item_key) {
-    if (!WC()->session->get('is_external_cart')) {
+    if (!WC()->session || !WC()->session->get('is_external_cart')) {
         return $product_name; // Skip for non-external carts
     }
     if (isset($cart_item['custom_name'])) {
@@ -816,6 +816,10 @@ function prefill_checkout_from_external($checkout) {
 // Redirect after order completion
 add_action('template_redirect', 'redirect_to_source_site_after_order');
 function redirect_to_source_site_after_order() {
+    if (!WC()->session || !method_exists(WC()->session, 'get')) {
+    return;
+}
+
 	error_log('redirect-before endpoint check ');
     if (!is_wc_endpoint_url('order-received') || !isset($_GET['key'])) return;
 error_log('redirect-after endpoint check ');
@@ -965,7 +969,7 @@ function create_order_redirect_form($source_site, $order_data, $order_id) {
 add_filter('woocommerce_cart_item_thumbnail', 'override_cart_item_thumbnail', 10, 3);
 
 function override_cart_item_thumbnail($thumbnail, $cart_item, $cart_item_key) {
-    if (!WC()->session->get('is_external_cart')) {
+    if (!WC()->session || !WC()->session->get('is_external_cart')) {
         return $thumbnail;
     }
     // Check if the cart item has a custom image_url
@@ -991,7 +995,7 @@ add_action('woocommerce_before_calculate_totals', 'set_custom_cart_prices', 10, 
 function set_custom_cart_prices($cart) {
     if (is_admin() && !defined('DOING_AJAX')) return;
     if (did_action('woocommerce_before_calculate_totals') >= 2) return;
-    if (!WC()->session->get('is_external_cart')) return;
+    if (!WC()->session || !WC()->session->get('is_external_cart')) return;
 
     $external_pricing_data = WC()->session->get('external_pricing_data');
 
@@ -1168,6 +1172,9 @@ function force_custom_images_in_api($response, $order, $request) {
 
 //check if cart gets empty after user comes from external then clear the external key
 add_action('woocommerce_cart_item_removed', function ($removed_cart_item_key, $cart) {
+    if (!WC()->session || !method_exists(WC()->session, 'get')) {
+        return;
+    }
     if (WC()->cart->is_empty()  && WC()->session->get('is_external_cart')) {
 		WC()->session->__unset('is_external_cart');
 		WC()->session->__unset('external_pricing_data');
