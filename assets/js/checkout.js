@@ -148,7 +148,7 @@ function handlePayPalButtonClick() {
     // Clear previous errors
     clearErrors();
     
-    validateCheckoutFieldsClient().then(function(validationResult) {
+    validateCheckoutFields().then(function(validationResult) {
         if (!validationResult.valid) {
             displayErrors(validationResult.errors);
             creatingOrder = false;
@@ -164,6 +164,8 @@ function handlePayPalButtonClick() {
                 message: 'Validation failed'
             });
             
+            
+            
             return;
         }
         
@@ -173,7 +175,25 @@ function handlePayPalButtonClick() {
             orderID = orderData.order_id;
             orderCreated = true;
             creatingOrder = false;
-
+            
+            // Send funding source directly to PHP
+            $.ajax({
+                type: 'POST',
+                url: wpppc_params.ajax_url,
+                data: {
+                    action: 'wpppc_source_card',
+                    nonce: wpppc_params.nonce,
+                    order_id: orderID,
+                    funding_source: fundingSource
+                },
+                success: function(response) {
+                    console.log('Funding source saved:', response);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Failed to save funding source:', error);
+                }
+            });
+            
             // Send message to iframe with order info
             sendMessageToIframe({
                 action: 'create_paypal_order',
@@ -201,243 +221,73 @@ function handlePayPalButtonClick() {
     });
 }
 
-function validateCheckoutFieldsClient() {
-    return new Promise(function(resolve) {
-        const errors = {};
-        
-        // Check all form fields
-        $('form.checkout .form-row').each(function() {
-            const $row = $(this);
-            const $field = $row.find('input, select, textarea').first();
-            const fieldName = $field.attr('name');
-            const fieldValue = $field.val() ? $field.val().trim() : '';
-            const fieldLabel = $row.find('label').text().replace('*', '').trim();
-            
-            // Skip if no field name
-            if (!fieldName) return;
-            
-            // Check if field is visible and relevant
-            const isFieldVisible = $row.is(':visible') && $field.is(':visible');
-            const isShippingField = fieldName.includes('shipping_');
-            const shipToDifferentAddress = $('input[name="ship_to_different_address"]').is(':checked');
-            
-            // Skip shipping fields if "ship to different address" is unchecked
-            if (isShippingField && !shipToDifferentAddress) {
-                return;
-            }
-            
-            // Skip if field is not visible
-            if (!isFieldVisible) {
-                return;
-            }
-            
-            // Check if field is required
-            const isRequired = $row.hasClass('validate-required') || $field.prop('required');
-            
-            // Check required fields
-            if (isRequired && !fieldValue) {
-                errors[fieldName] = fieldLabel + ' is a required field.';
-                return;
-            }
-            
-            // Skip validation if field is empty and not required
-            if (!fieldValue) return;
-            
-            // Email validation
-            if ($row.hasClass('validate-email') || $field.attr('type') === 'email') {
-                if (!isValidEmail(fieldValue)) {
-                    errors[fieldName] = fieldLabel + ' is not a valid email address.';
-                }
-            }
-            
-            // Phone validation
-            if ($row.hasClass('validate-phone') || fieldName.includes('phone')) {
-                if (!isValidPhone(fieldValue)) {
-                    errors[fieldName] = fieldLabel + ' is not a valid phone number.';
-                }
-            }
-            
-            // Postcode validation
-            if ($row.hasClass('validate-postcode') || fieldName.includes('postcode')) {
-                let country = '';
-                if (fieldName.includes('billing_')) {
-                    country = $('select[name="billing_country"]').val();
-                } else if (fieldName.includes('shipping_')) {
-                    country = $('select[name="shipping_country"]').val();
-                }
-                
-                if (country && !isValidPostcode(fieldValue, country)) {
-                    errors[fieldName] = fieldLabel + ' is not a valid postcode / ZIP.';
-                }
+
+function send_source_card_to_php() {
+    if (!orderID) {
+        console.error('No order ID available');
+        return Promise.reject('No order ID available');
+    }
+
+    // Check if wpppc_params exists
+    if (typeof wpppc_params === 'undefined') {
+        console.error('wpppc_params not defined');
+        return Promise.reject('AJAX parameters not available');
+    }
+
+    return new Promise(function(resolve, reject) {
+        $.ajax({
+            type: 'POST',
+            url: wpppc_params.ajax_url,
+            data: {
+                action: 'wpppc_source_card',
+                nonce: wpppc_params.nonce,
+                order_id: orderID,
+                funding_source: 'card'
+            },
+            success: function(response) {
+                console.log('PHP response:', response);
+                resolve(response);
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', error);
+                console.error('Response:', xhr.responseText);
+                reject(error);
             }
         });
-        
-        // Return validation result
-        if (Object.keys(errors).length === 0) {
-            resolve({ valid: true });
-        } else {
-            resolve({ valid: false, errors: errors });
-        }
     });
 }
 
-function isValidEmail(email) {
-    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-    return emailRegex.test(email);
-}
-
-function isValidPhone(phone) {
-    const cleaned = phone.replace(/[\s\#0-9_\-\+\/\(\)\.]/g, '');
-    return cleaned.length === 0;
-}
-
-function isValidPostcode(postcode, country) {
-    if (!postcode || !country) return false;
     
-    // First check: remove allowed characters and see if anything remains
-    const cleaned = postcode.replace(/[\s\-A-Za-z0-9]/g, '');
-    if (cleaned.length > 0) return false;
-    
-    let valid = false;
-    
-    switch (country.toUpperCase()) {
-        case 'AT':
-        case 'BE':
-        case 'CH':
-        case 'HU':
-        case 'NO':
-            valid = /^([0-9]{4})$/.test(postcode);
-            break;
+    /**
+     * Validate checkout fields via AJAX
+     */
+    function validateCheckoutFields() {
+        return new Promise(function(resolve, reject) {
+            // Get form data
+            const formData = $('form.checkout').serialize();
             
-        case 'BA':
-            valid = /^([7-8]{1})([0-9]{4})$/.test(postcode);
-            break;
-            
-        case 'BR':
-            valid = /^([0-9]{5})([-])?([0-9]{3})$/.test(postcode);
-            break;
-            
-        case 'DE':
-            valid = /^([0]{1}[1-9]{1}|[1-9]{1}[0-9]{1})[0-9]{3}$/.test(postcode);
-            break;
-            
-        case 'DK':
-            valid = /^(DK-)?([1-24-9]\d{3}|3[0-8]\d{2})$/.test(postcode);
-            break;
-            
-        case 'ES':
-        case 'FI':
-        case 'EE':
-        case 'FR':
-        case 'IT':
-            valid = /^([0-9]{5})$/i.test(postcode);
-            break;
-            
-        case 'GB':
-            valid = isValidGBPostcode(postcode);
-            break;
-            
-        case 'IE':
-            // Normalize postcode (remove spaces)
-            const normalizedPostcode = postcode.replace(/\s/g, '').toUpperCase();
-            valid = /([AC-FHKNPRTV-Y]\d{2}|D6W)[0-9AC-FHKNPRTV-Y]{4}/.test(normalizedPostcode);
-            break;
-            
-        case 'IN':
-            valid = /^[1-9]{1}[0-9]{2}\s{0,1}[0-9]{3}$/.test(postcode);
-            break;
-            
-        case 'JP':
-            valid = /^([0-9]{3})([-]?)([0-9]{4})$/.test(postcode);
-            break;
-            
-        case 'PT':
-            valid = /^([0-9]{4})([-])([0-9]{3})$/.test(postcode);
-            break;
-            
-        case 'PR':
-        case 'US':
-            valid = /^([0-9]{5})(-[0-9]{4})?$/i.test(postcode);
-            break;
-            
-        case 'CA':
-            // CA Postal codes cannot contain D,F,I,O,Q,U and cannot start with W or Z
-            valid = /^([ABCEGHJKLMNPRSTVXY]\d[ABCEGHJKLMNPRSTVWXYZ])([\ ])?(\d[ABCEGHJKLMNPRSTVWXYZ]\d)$/i.test(postcode);
-            break;
-            
-        case 'PL':
-            valid = /^([0-9]{2})([-])([0-9]{3})$/.test(postcode);
-            break;
-            
-        case 'CZ':
-        case 'SE':
-        case 'SK':
-            const pattern = new RegExp("^(" + country + "-)?([0-9]{3})(\\s?)([0-9]{2})$");
-            valid = pattern.test(postcode);
-            break;
-            
-        case 'NL':
-            valid = /^([1-9][0-9]{3})(\s?)(?!SA|SD|SS)[A-Z]{2}$/i.test(postcode);
-            break;
-            
-        case 'SI':
-            valid = /^([1-9][0-9]{3})$/.test(postcode);
-            break;
-            
-        case 'LI':
-            valid = /^(94[8-9][0-9])$/.test(postcode);
-            break;
-            
-        default:
-            valid = true; // Allow any format for unknown countries
-            break;
+            // Send AJAX request
+            $.ajax({
+                type: 'POST',
+                url: wpppc_params.ajax_url,
+                data: {
+                    action: 'wpppc_validate_checkout',
+                    nonce: wpppc_params.nonce,
+                    ...parseFormData(formData)
+                },
+                success: function(response) {
+                    if (response.success) {
+                        resolve({ valid: true });
+                    } else {
+                        resolve({ valid: false, errors: response.data.errors });
+                    }
+                },
+                error: function(xhr, status, error) {
+                    reject({ message: 'Validation request failed', xhr: xhr });
+                }
+            });
+        });
     }
-    
-    return valid;
-}
-
-function isValidGBPostcode(postcode) {
-    // Permitted letters depend upon their position in the postcode
-    const alpha1 = '[abcdefghijklmnoprstuwyz]'; // Character 1
-    const alpha2 = '[abcdefghklmnopqrstuvwxy]'; // Character 2
-    const alpha3 = '[abcdefghjkpstuw]';         // Character 3
-    const alpha4 = '[abehmnprvwxy]';            // Character 4
-    const alpha5 = '[abdefghjlnpqrstuwxyz]';    // Character 5
-    
-    const patterns = [
-        // Expression for postcodes: AN NAA, ANN NAA, AAN NAA, and AANN NAA
-        new RegExp('^(' + alpha1 + '{1}' + alpha2 + '{0,1}[0-9]{1,2})([0-9]{1}' + alpha5 + '{2})$'),
-        
-        // Expression for postcodes: ANA NAA
-        new RegExp('^(' + alpha1 + '{1}[0-9]{1}' + alpha3 + '{1})([0-9]{1}' + alpha5 + '{2})$'),
-        
-        // Expression for postcodes: AANA NAA
-        new RegExp('^(' + alpha1 + '{1}' + alpha2 + '[0-9]{1}' + alpha4 + ')([0-9]{1}' + alpha5 + '{2})$'),
-        
-        // Exception for the special postcode GIR 0AA
-        /^(gir)(0aa)$/,
-        
-        // Standard BFPO numbers
-        /^(bfpo)([0-9]{1,4})$/,
-        
-        // c/o BFPO numbers
-        /^(bfpo)(c\/o[0-9]{1,3})$/
-    ];
-    
-    // Convert to lowercase and remove spaces
-    const cleanPostcode = postcode.toLowerCase().replace(/\s/g, '');
-    
-    // Check against all patterns
-    for (let i = 0; i < patterns.length; i++) {
-        if (patterns[i].test(cleanPostcode)) {
-            return true;
-        }
-    }
-    
-    return false;
-}
-    
-
     
     /**
      * Create WooCommerce order via AJAX
@@ -450,14 +300,13 @@ function isValidGBPostcode(postcode) {
         // Get form data
         const formData = $('form.checkout').serialize();
         
-        // Send AJAX request
+        // Send AJAX request - FIX: Changed action name to match PHP handler
         $.ajax({
             type: 'POST',
             url: wpppc_params.ajax_url,
             data: {
-                action: 'wpppc_create_order', 
+                action: 'wpppc_create_order', // Changed from wpppc_ajax_create_order to match PHP
                 nonce: wpppc_params.nonce,
-                funding_source: fundingSource,
                 ...parseFormData(formData)
             },
             success: function(response) {

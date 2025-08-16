@@ -87,6 +87,8 @@ class WPPPC_Server_Manager {
             last_used timestamp NULL DEFAULT NULL,
             created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
             accepts_credit_card tinyint(1) NOT NULL DEFAULT 0,
+            is_personal tinyint(1) NOT NULL DEFAULT 1,
+            personal_express tinyint(1) NOT NULL DEFAULT 1,
             PRIMARY KEY (id)
         ) $charset_collate;";
         
@@ -124,6 +126,7 @@ class WPPPC_Server_Manager {
                         <th><?php _e('Card', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Product Mapping', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Mode', 'woo-paypal-proxy-client'); ?></th>
+                        <th><?php _e('Express', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Actions', 'woo-paypal-proxy-client'); ?></th>
                     </tr>
                 </thead>
@@ -194,6 +197,18 @@ class WPPPC_Server_Manager {
                             </td>
                             
                             <td>
+                                <?php if ($server->is_personal): ?>
+                                    <?php 
+                                    $express_text = $server->personal_express ? __('On', 'woo-paypal-proxy-client') : __('Off', 'woo-paypal-proxy-client');
+                                    $express_class = $server->personal_express ? 'express-on' : 'express-off';
+                                    ?>
+                                    <span class="status-badge <?php echo $express_class; ?>"><?php echo $express_text; ?></span>
+                                <?php else: ?>
+                                    <span class="status-badge na">—</span>
+                                <?php endif; ?>
+                            </td>
+                                                        
+                            <td>
                                 <?php if (!$server->is_selected) : ?>
                                     <a href="#" class="use-server" data-id="<?php echo esc_attr($server->id); ?>"><?php _e('Use This Server', 'woo-paypal-proxy-client'); ?></a> | 
                                 <?php endif; ?>
@@ -251,6 +266,15 @@ class WPPPC_Server_Manager {
                                 <option value="1"><?php _e('Personal', 'woo-paypal-proxy-client'); ?></option>
                             </select>
                             <p class="description"><?php _e('Business mode uses PayPal Business integration. Personal mode uses PayPal Standard.', 'woo-paypal-proxy-client'); ?></p>
+                        </div>
+                        
+                        <div class="form-field">
+                            <label for="personal_express"><?php _e('Personal Express', 'woo-paypal-proxy-client'); ?></label>
+                            <select id="personal_express" name="personal_express">
+                                <option value="1"><?php _e('On', 'woo-paypal-proxy-client'); ?></option>
+                                <option value="0"><?php _e('Off', 'woo-paypal-proxy-client'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Enable express checkout on product pages for personal mode.', 'woo-paypal-proxy-client'); ?></p>
                         </div>
                         
                         <div class="form-field">
@@ -497,6 +521,7 @@ class WPPPC_Server_Manager {
                                     $('#capacity_limit').val(server.capacity_limit);
                                     $('#is_active').val(server.is_active);
                                     $('#is_personal').val(server.is_personal);
+                                    $('#personal_express').val(server.personal_express);
                                     $('#priority').val(server.priority);
                                     $('#accepts_credit_card').val(server.accepts_credit_card);
                                     $('#product_id_pool').val(server.product_id_pool);
@@ -994,6 +1019,7 @@ public function add_server_usage($server_id, $amount) {
                 'api_secret' => sanitize_text_field($server_data['api_secret']),
                 'capacity_limit' => intval($server_data['capacity_limit']),
                 'is_personal' => intval($server_data['is_personal']),
+                'personal_express' => intval($server_data['personal_express']),
                 'is_active' => intval($server_data['is_active']),
                 'is_selected' => $is_first_server ? 1 : 0, // Select if it's the first server
                 'priority' => intval($server_data['priority']),
@@ -1084,6 +1110,7 @@ public function add_server_usage($server_id, $amount) {
                 'api_secret' => sanitize_text_field($server_data['api_secret']),
                 'capacity_limit' => intval($server_data['capacity_limit']),
                 'is_personal' => intval($server_data['is_personal']),
+                'personal_express' => intval($server_data['personal_express']),
                 'is_active' => intval($server_data['is_active']),
                 'priority' => intval($server_data['priority']),
                 'accepts_credit_card' => intval($server_data['accepts_credit_card']),

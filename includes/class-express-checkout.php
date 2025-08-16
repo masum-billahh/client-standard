@@ -1050,6 +1050,24 @@ public function ajax_complete_express_order() {
         // Mirror order to server
         $mirror_response = $api_handler->mirror_order_to_server($order, $paypal_order_id, $transaction_id);
         
+        if ($server_id) {
+            // Get the order total amount
+            $order_amount = floatval($order->get_total());
+            error_log('PayPal Proxy - Order amount to add to usage: ' . $order_amount);
+            
+            // Get server manager instance
+            require_once WPPPC_PLUGIN_DIR . 'includes/class-server-manager.php';
+            $server_manager = WPPPC_Server_Manager::get_instance();
+            
+            // Update usage with order amount
+            $result = $server_manager->add_server_usage($server_id, $order_amount);
+            error_log('PayPal Proxy - Result of add_server_usage: ' . ($result ? 'success' : 'failed'));
+            
+            error_log('PayPal Proxy - Added ' . $order_amount . ' to server usage for server ID ' . $server_id);
+        } else {
+            error_log('PayPal Proxy - No server_id found, cannot add usage');
+        }
+        
         // Empty the cart
         WC()->cart->empty_cart();
         

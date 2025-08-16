@@ -1,0 +1,181 @@
+
+/* Modal Styles */
+.wpppc-modal {
+    position: fixed;
+    z-index: 1050;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6);
+}
+
+.wpppc-modal-content {
+    background-color: #fefefe;
+    margin: 2% auto;
+    padding: 30px;
+    border: 1px solid #888;
+    width: 90%;
+    max-width: 800px;
+    border-radius: 8px;
+    position: relative;
+}
+
+.wpppc-modal-close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    position: absolute;
+    right: 20px;
+    top: 10px;
+}
+
+.wpppc-modal-close:hover,
+.wpppc-modal-close:focus {
+    color: #000;
+}
+
+/* Form Layout */
+.wpppc-form-row {
+    display: flex;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.wpppc-form-col {
+    flex: 1;
+}
+
+.wpppc-form-col h3 {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* Form Fields */
+#wpppc-express-form .form-row {
+    margin-bottom: 15px;
+}
+
+#wpppc-express-form label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+#wpppc-express-form input[type="text"],
+#wpppc-express-form input[type="email"],
+#wpppc-express-form input[type="tel"],
+#wpppc-express-form select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#wpppc-express-form input.error {
+    border-color: #ff0000;
+}
+
+/* Error Messages */
+.wpppc-form-errors {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 12px;
+    border-radius: 4px;
+    margin: 20px 0;
+}
+
+.wpppc-form-errors ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+/* Form Actions */
+.wpppc-form-actions {
+    margin-top: 30px;
+    text-align: center;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.wpppc-form-actions button {
+    padding: 5px 10px;
+    font-size: 16px;
+    line-height: 1.4em !important;
+}
+
+/* PayPal Button */
+#wpppc-product-express-button {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+#wpppc-product-express-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+
+/* Body modal open state */
+body.wpppc-modal-open {
+    overflow: hidden;
+}
+
+#order-totals .total-line {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    padding: 5px 0;
+}
+
+#order-totals .total-final {
+    border-top: 1px solid #ddd;
+    margin-top: 10px;
+    padding-top: 10px;
+    font-size: 1.1em;
+}
+
+.shipping-methods {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+}
+
+.shipping-methods li {
+    margin-bottom: 8px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.shipping-methods label {
+    display: block;
+    cursor: pointer;
+    margin: 0;
+}
+
+.shipping-methods input[type="radio"] {
+    margin-right: 8px;
+    font-size: 10px !important;
+}
+.shipping-methods label{
+    margin: 0px !important;
+}
+/* Responsive */
+@media (max-width: 768px) {
+    .wpppc-form-row {
+        flex-direction: column;
+    }
+    
+    .wpppc-modal-content {
+        width: 95%;
+        margin: 10px auto;
+        padding: 20px;
+    }
+}

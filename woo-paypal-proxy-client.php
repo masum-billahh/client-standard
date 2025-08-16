@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce PayPal Proxy Client
  * Plugin URI: https://www.upwork.com/freelancers/~01a6e65817b86d4589
  * Description: Connects to multiple PayPal proxy servers with load balancing
- * Version: 3.00
+ * Version: 1.1.0
  * Author: Masum Billah
  * Author URI: https://www.upwork.com/freelancers/~01a6e65817b86d4589
  * Text Domain: woo-paypal-proxy-client
@@ -69,16 +69,19 @@ function wpppc_init() {
     
     require_once WPPPC_PLUGIN_DIR . 'includes/class-express-checkout.php';
     require_once WPPPC_PLUGIN_DIR . 'includes/class-paypal-standard-proxy-gateway.php';
-    require_once WPPPC_PLUGIN_DIR . 'includes/class-standard-proxy-client.php';
+require_once WPPPC_PLUGIN_DIR . 'includes/class-standard-proxy-client.php';
 
-    //plugin C file
-    require_once WPPPC_PLUGIN_DIR . 'includes/Redirect-handler-C.php';
+//product page standard express
+require_once WPPPC_PLUGIN_DIR . 'includes/class-product-page-standard-express.php';
 
-    // Initialize standard proxy
-    $standard_proxy = new WPPPC_Standard_Proxy_Client();
+//plugin C file
+require_once WPPPC_PLUGIN_DIR . 'includes/Redirect-handler-C.php';
 
-    // Initialize Express Checkout (will be auto-initialized in its constructor)
-    new WPPPC_Express_Checkout();
+// Initialize standard proxy
+$standard_proxy = new WPPPC_Standard_Proxy_Client();
+
+// Initialize Express Checkout (will be auto-initialized in its constructor)
+new WPPPC_Express_Checkout();
     
     // Initialize classes
     WPPPC_Server_Manager::get_instance(); // Use singleton
@@ -268,8 +271,8 @@ function wpppc_validate_checkout_fields() {
     
     wp_die();
 }
-//add_action('wp_ajax_wpppc_validate_checkout', 'wpppc_validate_checkout_fields');
-//add_action('wp_ajax_nopriv_wpppc_validate_checkout', 'wpppc_validate_checkout_fields');
+add_action('wp_ajax_wpppc_validate_checkout', 'wpppc_validate_checkout_fields');
+add_action('wp_ajax_nopriv_wpppc_validate_checkout', 'wpppc_validate_checkout_fields');
 
 /**
  * Add settings link on plugin page
@@ -597,8 +600,6 @@ function wpppc_create_order_handler() {
         // Calculate totals (mimicking WooCommerce calculation)
         $total_amount = $cart_subtotal + $tax_total + $shipping_total + $shipping_tax;
         
-        $funding_source = sanitize_text_field($_POST['funding_source'] ?? '');
-        
         // Store all order data in transient (expires in 1 hour)
         $order_data = array(
             'temp_order_id' => $temp_order_id,
@@ -615,16 +616,13 @@ function wpppc_create_order_handler() {
             'shipping_total' => $shipping_total,
             'shipping_tax' => $shipping_tax,
             'total_amount' => $total_amount,
-            'funding_source' => $funding_source,
             'currency' => get_woocommerce_currency(),
             'prices_include_tax' => wc_prices_include_tax(),
             'tax_display_cart' => get_option('woocommerce_tax_display_cart'),
             'tax_display_shop' => get_option('woocommerce_tax_display_shop'),
             'created_time' => current_time('timestamp'),
-            
             'post_data' => $_POST // Store original POST data for any additional processing
         );
-        $source = sanitize_text_field($_POST['funding_source'] ?? '');
         
         // Store in transient (1 hour expiration)
         //set_transient('wpppc_temp_order_' . $temp_order_id, $order_data, HOUR_IN_SECONDS);
@@ -1669,8 +1667,8 @@ function delete_old_express_checkout_orders() {
 }
 
 //add card_details to orders
-//add_action('wp_ajax_wpppc_source_card', 'handle_source_card');
-//add_action('wp_ajax_nopriv_wpppc_source_card', 'handle_source_card');
+add_action('wp_ajax_wpppc_source_card', 'handle_source_card');
+add_action('wp_ajax_nopriv_wpppc_source_card', 'handle_source_card');
 
 function handle_source_card() {
     check_ajax_referer('wpppc-nonce', 'nonce');
