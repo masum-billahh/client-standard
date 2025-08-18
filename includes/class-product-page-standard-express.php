@@ -30,6 +30,10 @@ class WPPPC_Product_Page_Express {
         
         add_action('wp_ajax_wpppc_update_totals_only', array($this, 'update_totals_only'));
         add_action('wp_ajax_nopriv_wpppc_update_totals_only', array($this, 'update_totals_only'));
+        
+        // AJAX handler for getting states by country
+    add_action('wp_ajax_wpppc_get_states', array($this, 'get_states_by_country'));
+    add_action('wp_ajax_nopriv_wpppc_get_states', array($this, 'get_states_by_country'));
 
     }
     
@@ -66,76 +70,208 @@ class WPPPC_Product_Page_Express {
         wp_send_json_success(array('totals' => $totals));
     }
     
+  
+
+/**
+ * Get states for a given country and determine field type
+ */
+public function get_states_by_country() {
+    // Check nonce
+    if (!wp_verify_nonce($_POST['nonce'], 'wpppc-product-express')) {
+        wp_send_json_error(array('message' => 'Security check failed'));
+        return;
+    }
+    
+    $country = sanitize_text_field($_POST['country']);
+    
+    if (empty($country)) {
+        wp_send_json_error(array('message' => 'No country provided'));
+        return;
+    }
+    
+    try {
+        // Get states from WooCommerce
+        $states = WC()->countries->get_states($country);
+        
+        // Determine if state is required for this country
+        $state_required = false;
+        if (method_exists(WC()->countries, 'state_is_required')) {
+            $state_required = WC()->countries->state_is_required($country);
+        } else {
+            $state_required = !empty($states);
+        }
+        
+        $state_label = 'State';
+        if (method_exists(WC()->countries, 'get_state_label')) {
+            $state_label = WC()->countries->get_state_label($country);
+        }
+        
+        if (empty($state_label)) {
+            $state_label = 'State / County';
+        }
+        
+        $has_states = !empty($states);
+        
+        if ($has_states) {
+            $field_type = 'select';
+        } else if ($state_required) {
+            $field_type = 'text_required';
+        } else {
+            $field_type = 'text_optional';
+        }
+        
+        wp_send_json_success(array(
+            'states' => $states ?: array(),
+            'field_type' => $field_type,
+            'required' => $state_required,
+            'label' => $state_label,
+            'has_states' => $has_states
+        ));
+        
+    } catch (Exception $e) {
+        wp_send_json_error(array(
+            'message' => 'Error processing request: ' . $e->getMessage()
+        ));
+    }
+}  
     /**
      * Render PayPal button on product page
      */
     public function render_paypal_button() {
-        global $product;
-        
-        if (!$product || !$product->is_purchasable() || !$product->is_in_stock()) {
-            return;
-        }
-        
-        // Check if PayPal Standard is enabled
-        $server_manager = WPPPC_Server_Manager::get_instance();
-        $server = $server_manager->get_selected_server();
-        
-        if (!$server || empty($server->is_personal) || empty($server->personal_express)) {
-            return; // Only show for Personal mode with Express enabled
-        }
-        
-        ?>
-        <div id="wpppc-product-express-container" style="margin-top: 20px;">
-            <button type="button" id="wpppc-product-express-button" class="button alt">
-                <img src="<?php echo WPPPC_PLUGIN_URL; ?>assets/images/ppl-button-standard.png" alt="PayPal" style="height: 50px; width: 100%; cursor: pointer;" />
-            </button>
-        </div>
-        
-        <!-- Address Form Modal -->
-        <div id="wpppc-express-modal" class="wpppc-modal" style="display:none;">
-            <div class="wpppc-modal-content">
-                <span class="wpppc-modal-close">&times;</span>
-                <h2><?php _e('Complete Your Information', 'woo-paypal-proxy-client'); ?></h2>
-                <form id="wpppc-express-form">
-                    <div class="wpppc-form-row">
-                        <div class="wpppc-form-col">
-                            <h3><?php _e('Billing Details', 'woo-paypal-proxy-client'); ?></h3>
-                            <?php $this->render_checkout_fields('billing'); ?>
-                        </div>
-                       <div class="wpppc-form-col">
-                        <h3><?php _e('Shipping Details', 'woo-paypal-proxy-client'); ?></h3>
-                        <label>
-                            <input type="checkbox" id="ship_to_different_address" name="ship_to_different_address" value="1">
-                            <?php _e('Ship to a different address?', 'woo-paypal-proxy-client'); ?>
-                        </label>
-                        <div id="shipping-fields" style="display:none;">
-                            <?php $this->render_checkout_fields('shipping'); ?>
-                        </div>
-                        
-                        <!-- Shipping Methods Section -->
-                        <div id="shipping-methods-section" style="margin-top: 20px;">
-                            <h4><?php _e('Shipping Method', 'woo-paypal-proxy-client'); ?></h4>
-                            <div id="shipping-methods-container">
-                                <p class="shipping-notice"><?php _e('Please enter your address to see shipping options.', 'woo-paypal-proxy-client'); ?></p>
-                            </div>
-                            <div id="order-totals" style="margin-top: 15px; padding: 10px; border: 1px solid #ddd; display: none;">
-                                <div class="total-line"><span><?php _e('Subtotal:', 'woo-paypal-proxy-client'); ?></span> <span id="subtotal-amount">-</span></div>
-                                <div class="total-line"><span><?php _e('Shipping:', 'woo-paypal-proxy-client'); ?></span> <span id="shipping-amount">-</span></div>
-                                <div class="total-line"><span><?php _e('Tax:', 'woo-paypal-proxy-client'); ?></span> <span id="tax-amount">-</span></div>
-                                <div class="total-line total-final"><strong><span><?php _e('Total:', 'woo-paypal-proxy-client'); ?></span> <span id="total-amount">-</span></strong></div>
-                            </div>
-                        </div>
-                    </div>
-                    </div>
-                    <div class="wpppc-form-errors" style="display:none;"></div>
-                    <div class="wpppc-form-actions">
-                        <button type="submit" class="button alt proceed-ppl"><?php _e('Proceed to PayPal', 'woo-paypal-proxy-client'); ?></button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <?php
+    global $product;
+    
+    if (!$product || !$product->is_purchasable() || !$product->is_in_stock()) {
+        return;
     }
+    
+    // Check if PayPal Standard is enabled
+    $server_manager = WPPPC_Server_Manager::get_instance();
+    $server = $server_manager->get_selected_server();
+    
+    if (!$server || empty($server->is_personal) || empty($server->personal_express)) {
+        return; // Only show for Personal mode with Express enabled
+    }
+    
+    ?>
+    <div id="wpppc-product-express-container" style="margin-top: 20px;">
+        <button type="button" id="wpppc-product-express-button" class="button alt">
+            <img src="<?php echo WPPPC_PLUGIN_URL; ?>assets/images/ppl-button-standard.png" alt="PayPal" style="height: 50px; width: 100%; cursor: pointer;" />
+        </button>
+    </div>
+    
+    <!-- Address Form Modal -->
+    <div id="wpppc-express-modal" class="wpppc-modal" style="display:none;">
+        <div class="wpppc-modal-content">
+            <span class="wpppc-modal-close">&times;</span>
+            <h2><?php _e('Confirm your address', 'woo-paypal-proxy-client'); ?></h2>
+            <form id="wpppc-express-form">
+                <div class="wpppc-modern-form">
+                    <!-- Email Field -->
+                    <div class="wpppc-field-container">
+                        <input type="email" id="billing_email" name="billing_email" required>
+                        <label for="billing_email"><?php _e('Email', 'woo-paypal-proxy-client'); ?></label>
+                    </div>
+
+                    <!-- Shipping Address Section -->
+                    <h3 class="wpppc-section-title"><?php _e('Shipping address', 'woo-paypal-proxy-client'); ?></h3>
+                    
+                    <!-- Country -->
+                    <div class="wpppc-field-container wpppc-select-container">
+                        <select id="billing_country" name="billing_country" required>
+                            <option value=""><?php _e('Select Country', 'woo-paypal-proxy-client'); ?></option>
+                            <?php
+                            $countries = WC()->countries->get_allowed_countries();
+                            foreach ($countries as $code => $name) {
+                                echo '<option value="' . esc_attr($code) . '">' . esc_html($name) . '</option>';
+                            }
+                            ?>
+                        </select>
+                        <label for="billing_country"><?php _e('Country/Region', 'woo-paypal-proxy-client'); ?></label>
+                    </div>
+
+                    <!-- First Name, Last Name -->
+                    <div class="wpppc-field-row">
+                        <div class="wpppc-field-container wpppc-field-half">
+                            <input type="text" id="billing_first_name" name="billing_first_name" required>
+                            <label for="billing_first_name"><?php _e('First name', 'woo-paypal-proxy-client'); ?></label>
+                        </div>
+                        <div class="wpppc-field-container wpppc-field-half">
+                            <input type="text" id="billing_last_name" name="billing_last_name" required>
+                            <label for="billing_last_name"><?php _e('Last name', 'woo-paypal-proxy-client'); ?></label>
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="wpppc-field-container">
+                        <input type="text" id="billing_address_1" name="billing_address_1" required>
+                        <label for="billing_address_1"><?php _e('Address', 'woo-paypal-proxy-client'); ?></label>
+                    </div>
+
+                    <!-- Add Address Line Toggle -->
+                    <div class="wpppc-add-address-toggle">
+                        <span class="wpppc-add-icon">+</span>
+                        <span class="wpppc-add-text"><?php _e('Add address suite, apartment etc', 'woo-paypal-proxy-client'); ?></span>
+                    </div>
+
+                    <!-- Optional Address Line 2 (Hidden by default) -->
+                    <div class="wpppc-field-container wpppc-address-line-2" style="display: none;">
+                        <input type="text" id="billing_address_2" name="billing_address_2">
+                        <label for="billing_address_2"><?php _e('Apartment, suite, etc.', 'woo-paypal-proxy-client'); ?></label>
+                    </div>
+
+                    <!-- City, State -->
+                    <div class="wpppc-field-row">
+                        <div class="wpppc-field-container wpppc-field-half">
+                            <input type="text" id="billing_city" name="billing_city" required>
+                            <label for="billing_city"><?php _e('City', 'woo-paypal-proxy-client'); ?></label>
+                        </div>
+                        <div class="wpppc-field-container wpppc-field-half wpppc-select-container">
+                            <select id="billing_state" name="billing_state" required>
+                                <option value=""><?php _e('Select State', 'woo-paypal-proxy-client'); ?></option>
+                            </select>
+                            <label for="billing_state"><?php _e('State', 'woo-paypal-proxy-client'); ?></label>
+                        </div>
+                    </div>
+
+                    <!-- ZIP Code, Phone -->
+                    <div class="wpppc-field-row">
+                        <div class="wpppc-field-container wpppc-field-half">
+                            <input type="text" id="billing_postcode" name="billing_postcode" required>
+                            <label for="billing_postcode"><?php _e('ZIP code', 'woo-paypal-proxy-client'); ?></label>
+                        </div>
+                        <div class="wpppc-field-container wpppc-field-half">
+                            <input type="tel" id="billing_phone" name="billing_phone">
+                            <label for="billing_phone"><?php _e('Phone', 'woo-paypal-proxy-client'); ?></label>
+                        </div>
+                    </div>
+
+                    <!-- Hidden fields for proper form processing -->
+                    <input type="hidden" name="billing_company" value="">
+                    <input type="hidden" name="ship_to_different_address" value="">
+
+                    <!-- Shipping Options Section -->
+                    <h3 class="wpppc-section-title"><?php _e('Shipping options', 'woo-paypal-proxy-client'); ?></h3>
+                    <div id="shipping-methods-container">
+                        <p class="shipping-notice"><?php _e('Please enter your address to see shipping options.', 'woo-paypal-proxy-client'); ?></p>
+                    </div>
+                    
+                    <div id="order-totals" style="margin-top: 15px; padding: 10px; border: 1px solid #ddd; display: none;">
+                        <div class="total-line"><span><?php _e('Subtotal:', 'woo-paypal-proxy-client'); ?></span> <span id="subtotal-amount">-</span></div>
+                        <div class="total-line"><span><?php _e('Shipping:', 'woo-paypal-proxy-client'); ?></span> <span id="shipping-amount">-</span></div>
+                        <div class="total-line"><span><?php _e('Tax:', 'woo-paypal-proxy-client'); ?></span> <span id="tax-amount">-</span></div>
+                        <div class="total-line total-final"><strong><span><?php _e('Total:', 'woo-paypal-proxy-client'); ?></span> <span id="total-amount">-</span></strong></div>
+                    </div>
+                </div>
+                
+                <div class="wpppc-form-errors" style="display:none;"></div>
+                <div class="wpppc-form-actions">
+                    <button type="submit" class="button alt proceed-ppl"><?php _e('Confirm', 'woo-paypal-proxy-client'); ?></button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <?php
+}
     
     /**
  * Calculate shipping methods for given address

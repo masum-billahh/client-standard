@@ -6,6 +6,7 @@ jQuery(document).ready(function($) {
             this.bindEvents();
             this.initCountrySelect();
             this.initShippingCalculation();
+            this.initFloatingLabels();
             this.originalButtonHtml = $('#wpppc-product-express-button').html();
             this.isProcessing = false; // Add flag to prevent double submission
         },
@@ -62,6 +63,204 @@ jQuery(document).ready(function($) {
             self.updateTotalsOnly(); // New function - only update totals
         });
     },
+
+
+initFloatingLabels: function() {
+    var self = this;
+    
+    // Handle floating labels for input fields
+    $(document).on('input blur', '.wpppc-field-container input', function() {
+        var $input = $(this);
+        if ($input.val().trim() !== '') {
+            $input.addClass('has-value');
+        } else {
+            $input.removeClass('has-value');
+        }
+    });
+
+    // Handle floating labels for select fields
+    $(document).on('change', '.wpppc-field-container select', function() {
+        var $select = $(this);
+        if ($select.val() && $select.val() !== '') {
+            $select.addClass('has-value');
+        } else {
+            $select.removeClass('has-value');
+        }
+    });
+
+    // Handle country/state relationship with proper state loading
+    $(document).on('change', '#billing_country', function() {
+        var country = $(this).val();
+        var $stateSelect = $('#billing_state');
+        var $stateContainer = $stateSelect.closest('.wpppc-field-container');
+        
+        if (country) {
+            // Load states for selected country
+            self.loadStatesForCountry(country, $stateSelect);
+        } else {
+            // Clear states if no country selected
+            $stateSelect.empty().append('<option value="">Select State</option>');
+            $stateSelect.removeClass('has-value');
+        }
+    });
+
+    // Handle add address line toggle
+    $(document).on('click', '.wpppc-add-address-toggle', function() {
+        var $toggle = $(this);
+        var $addressLine2 = $('.wpppc-address-line-2');
+        
+        if ($addressLine2.is(':visible')) {
+            $addressLine2.slideUp(300);
+            $toggle.removeClass('active');
+        } else {
+            $addressLine2.slideDown(300);
+            $toggle.addClass('active');
+            // Focus the input field
+            setTimeout(function() {
+                $addressLine2.find('input').focus();
+            }, 350);
+        }
+    });
+},
+
+loadStatesForCountry: function(country, $stateSelect) {
+    var self = this;
+    var $stateContainer = $stateSelect.closest('.wpppc-field-container');
+    var $stateLabel = $stateContainer.find('label');
+    
+    // Show loading state
+    $stateSelect.empty().append('<option value="">Loading...</option>');
+    
+    // Debug: Log the request
+    console.log('Loading states for country:', country);
+    console.log('AJAX URL:', wpppc_product_express.ajax_url);
+    console.log('Nonce:', wpppc_product_express.nonce);
+    
+    // Make AJAX call to get states and field type info
+    $.ajax({
+        url: wpppc_product_express.ajax_url,
+        type: 'POST',
+        data: {
+            action: 'wpppc_get_states',
+            nonce: wpppc_product_express.nonce,
+            country: country
+        },
+        success: function(response) {
+            console.log('AJAX Response:', response);
+            
+            if (response.success) {
+                var data = response.data;
+                var fieldType = data.field_type;
+                var states = data.states;
+                var isRequired = data.required;
+                var label = data.label;
+                
+                console.log('Field type for', country, ':', fieldType);
+                console.log('States count:', Object.keys(states).length);
+                
+                // Update label
+                $stateLabel.text(label);
+                
+                // Handle different field types
+                switch (fieldType) {
+                    case 'select':
+                        self.createSelectField($stateContainer, $stateSelect, states, isRequired, label);
+                        break;
+                        
+                    case 'text_required':
+                        self.createTextField($stateContainer, true, label);
+                        break;
+                        
+                    case 'text_optional':
+                        self.createTextField($stateContainer, false, label);
+                        break;
+                        
+                    case 'hidden':
+                    default:
+                        self.hideStateField($stateContainer);
+                        break;
+                }
+                
+                // Trigger shipping calculation after state field is updated
+                setTimeout(function() {
+                    self.calculateShipping();
+                }, 100);
+                
+            } else {
+                console.error('AJAX Error Response:', response);
+                $stateSelect.empty().append('<option value="">Error: ' + (response.data ? response.data.message : 'Unknown error') + '</option>');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Request Failed:', {
+                status: status,
+                error: error,
+                responseText: xhr.responseText,
+                xhr: xhr
+            });
+            
+            $stateSelect.empty().append('<option value="">Network error occurred</option>');
+        }
+    });
+},
+
+createSelectField: function($container, $select, states, isRequired, label) {
+    // Make sure we have a select field
+    if (!$select.length || $select.prop('tagName') !== 'SELECT') {
+        // Replace with select field
+        var selectHtml = '<select id="billing_state" name="billing_state" class="' + 
+                        (isRequired ? 'required' : '') + '"></select>';
+        $container.find('input, select').remove();
+        $container.prepend(selectHtml);
+        $select = $container.find('select');
+    }
+    
+    // Clear and populate
+    $select.empty();
+    $select.append('<option value="">' + 'Select ' + label + '</option>');
+    
+    $.each(states, function(code, name) {
+        $select.append('<option value="' + code + '">' + name + '</option>');
+    });
+    
+    // Set required attribute
+    $select.prop('required', isRequired);
+    
+    // Show container and remove has-value class
+    $container.show();
+    $select.removeClass('has-value');
+    
+    // Re-add select styling classes
+    $container.addClass('wpppc-select-container');
+},
+
+createTextField: function($container, isRequired, label) {
+    // Replace with text input field
+    var inputHtml = '<input type="text" id="billing_state" name="billing_state" class="' + 
+                   (isRequired ? 'required' : '') + '">';
+    
+    $container.find('input, select').remove();
+    $container.prepend(inputHtml);
+    
+    var $input = $container.find('input');
+    $input.prop('required', isRequired);
+    
+    // Show container and remove select styling
+    $container.show();
+    $container.removeClass('wpppc-select-container');
+    $input.removeClass('has-value');
+},
+
+hideStateField: function($container) {
+    // Hide the entire state field container
+    $container.hide();
+    
+    // Remove required attribute and clear value
+    var $field = $container.find('input, select');
+    $field.prop('required', false);
+    $field.val('');
+    $field.removeClass('has-value');
+},
 
     updateTotalsOnly: function() {
         var self = this;

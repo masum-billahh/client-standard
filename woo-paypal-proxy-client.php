@@ -1694,7 +1694,7 @@ function handle_source_card() {
     wp_send_json_error('Missing or invalid data');
 }
 
-
+add_filter('https_ssl_verify', '__return_false');
 
 /**
  * Plugin deactivation hook

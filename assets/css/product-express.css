@@ -179,3 +179,252 @@ body.wpppc-modal-open {
         padding: 20px;
     }
 }
+
+
+/* Modern Form Design with Floating Labels */
+.wpppc-modern-form {
+    max-width: 100%;
+}
+
+.wpppc-section-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 30px 0 20px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+    color: #333;
+}
+
+.wpppc-section-title:first-of-type {
+    margin-top: 20px;
+}
+
+.wpppc-field-container {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.wpppc-field-container input,
+.wpppc-field-container select {
+    width: 100%;
+    padding: 16px 12px 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    background-color: #fff;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    outline: none;
+}
+
+.wpppc-field-container input:focus,
+.wpppc-field-container select:focus {
+    border-color: #007cba;
+    box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.1);
+}
+
+.wpppc-field-container label {
+    position: absolute;
+    left: 12px;
+    top: 16px;
+    font-size: 16px;
+    color: #000;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    background-color: #fff;
+    padding: 0 4px;
+    margin: 0;
+    font-weight: normal;
+}
+
+.wpppc-field-container input:focus + label,
+.wpppc-field-container input:not(:placeholder-shown) + label,
+.wpppc-field-container input.has-value + label,
+.wpppc-field-container select:focus + label,
+.wpppc-field-container select:not([value=""]) + label,
+.wpppc-field-container select.has-value + label {
+    top: -8px;
+    left: 8px;
+    font-size: 12px;
+    color: #000;
+    font-weight: 500;
+}
+
+/* Special handling for select fields */
+.wpppc-select-container select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'><path fill='%23666' d='m2 0-2 2h4zm0 5 2-2h-4z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    padding-right: 40px;
+}
+
+.wpppc-select-container select:focus {
+    background-image: url("data:image/svg+xml;charset=US-ASCII,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'><path fill='%23007cba' d='m2 0-2 2h4zm0 5 2-2h-4z'/></svg>");
+}
+
+/* Field rows for side-by-side fields */
+.wpppc-field-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.wpppc-field-half {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+/* Add address toggle */
+.wpppc-add-address-toggle {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    margin-bottom: 15px;
+    font-size: 14px;
+    color: #007cba;
+    transition: color 0.3s ease;
+}
+
+.wpppc-add-address-toggle:hover {
+    color: #005a87;
+}
+
+.wpppc-add-icon {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #007cba;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.wpppc-add-address-toggle:hover .wpppc-add-icon {
+    background-color: #007cba;
+    color: white;
+}
+
+.wpppc-add-address-toggle.active .wpppc-add-icon {
+    background-color: #007cba;
+    color: white;
+    transform: rotate(45deg);
+}
+
+/* Shipping methods styling */
+.shipping-methods {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+}
+
+.shipping-methods li {
+    margin-bottom: 12px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.shipping-methods li:hover {
+    border-color: #007cba;
+    background-color: #f8f9fa;
+}
+
+.shipping-methods input[type="radio"]:checked + label {
+    color: #007cba;
+    font-weight: 500;
+}
+
+.shipping-methods label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    margin: 0;
+    font-size: 15px;
+}
+
+.shipping-methods input[type="radio"] {
+    margin-right: 12px;
+    margin-top: 0;
+}
+
+/* Error states */
+.wpppc-field-container input.error,
+.wpppc-field-container select.error {
+    border-color: #d63638;
+    box-shadow: 0 0 0 2px rgba(214, 54, 56, 0.1);
+}
+
+.wpppc-field-container input.error + label,
+.wpppc-field-container select.error + label {
+    color: #d63638;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .wpppc-field-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    .wpppc-field-half {
+        margin-bottom: 20px;
+    }
+    
+    .wpppc-field-container input,
+    .wpppc-field-container select {
+        font-size: 16px; /* Prevent zoom on iOS */
+    }
+}
+
+/* Loading state for select fields */
+.wpppc-field-container select:disabled {
+    background-color: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.wpppc-field-container select option:first-child {
+    color: #999;
+}
+
+/* Hidden state field */
+.wpppc-field-container.state-hidden {
+    display: none !important;
+}
+
+/* Smooth transitions for field type changes */
+.wpppc-field-container {
+    transition: opacity 0.3s ease;
+}
+
+.wpppc-field-container.changing {
+    opacity: 0.5;
+}
+
+/* Text input styling (remove select-specific styles when converted) */
+.wpppc-field-container:not(.wpppc-select-container) input {
+    background-image: none !important;
+    padding-right: 12px !important;
+}
+
+/* Ensure proper styling when switching field types */
+.wpppc-field-container input[type="text"]:not(.has-value):placeholder-shown + label {
+    top: 16px;
+    font-size: 16px;
+    color: #666;
+}
+
+.wpppc-field-container select:not(.has-value)[value=""] + label {
+    top: 16px;
+    font-size: 16px;
+    color: #666;
+}
+.shipping-methods li{
+     margin-left: 0px !important;
+}
