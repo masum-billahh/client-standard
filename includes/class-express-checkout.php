@@ -180,7 +180,7 @@ class WPPPC_Express_Checkout {
  * AJAX handler for creating a PayPal order for Express Checkout
  */
 public function ajax_create_express_order() {
-    check_ajax_referer('wpppc-express-nonce', 'nonce');
+    //check_ajax_referer('wpppc-express-nonce', 'nonce');
     
     wpppc_log("Express Checkout: Creating order via AJAX");
     
@@ -893,7 +893,7 @@ wpppc_log("Express Checkout: Order #" . $order->get_id() . " created with:" .
 }
     
 public function ajax_complete_express_order() {
-    check_ajax_referer('wpppc-express-nonce', 'nonce');
+    //check_ajax_referer('wpppc-express-nonce', 'nonce');
     
     $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
     $paypal_order_id = isset($_POST['paypal_order_id']) ? sanitize_text_field($_POST['paypal_order_id']) : '';
@@ -1087,7 +1087,7 @@ public function ajax_complete_express_order() {
 }
     
    public function ajax_fetch_paypal_order_details() {
-    check_ajax_referer('wpppc-express-nonce', 'nonce');
+   // check_ajax_referer('wpppc-express-nonce', 'nonce');
     
     $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
     $paypal_order_id = isset($_POST['paypal_order_id']) ? sanitize_text_field($_POST['paypal_order_id']) : '';

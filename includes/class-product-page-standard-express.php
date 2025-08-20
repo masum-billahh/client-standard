@@ -34,6 +34,10 @@ class WPPPC_Product_Page_Express {
         // AJAX handler for getting states by country
     add_action('wp_ajax_wpppc_get_states', array($this, 'get_states_by_country'));
     add_action('wp_ajax_nopriv_wpppc_get_states', array($this, 'get_states_by_country'));
+    
+    // AJAX handler for getting cart totals
+add_action('wp_ajax_wpppc_get_cart_totals', array($this, 'get_cart_totals'));
+add_action('wp_ajax_nopriv_wpppc_get_cart_totals', array($this, 'get_cart_totals'));
 
     }
     
@@ -137,27 +141,48 @@ public function get_states_by_country() {
     /**
      * Render PayPal button on product page
      */
-    public function render_paypal_button() {
+  public function render_paypal_button() {
     global $product;
     
     if (!$product || !$product->is_purchasable() || !$product->is_in_stock()) {
         return;
     }
     
-    // Check if PayPal Standard is enabled
+    // Get server and check if PayPal is enabled
     $server_manager = WPPPC_Server_Manager::get_instance();
     $server = $server_manager->get_selected_server();
     
-    if (!$server || empty($server->is_personal) || empty($server->personal_express)) {
-        return; // Only show for Personal mode with Express enabled
+    if (!$server) {
+        return;
     }
     
+    // Show for Personal mode with Express enabled OR Business mode
+    $show_button = false;
+    if (!empty($server->is_personal) && !empty($server->personal_express)) {
+        $show_button = true; // Personal mode
+    } elseif (empty($server->is_personal)) {
+        $show_button = true; // Business mode
+    }
+    
+    if (!$show_button) {
+        return;
+    }
+    
+    $is_business_mode = empty($server->is_personal);
+    
+    
     ?>
-    <div id="wpppc-product-express-container" style="margin-top: 20px;">
+<div id="wpppc-product-express-container" style="margin-top: 20px;">
+    <?php if ($is_business_mode): ?>
+        <!-- Business Mode: Express Checkout Iframe -->
+        <div id="wpppc-product-express-iframe-container" class="wpppc-express-paypal-button"></div>
+    <?php else: ?>
+        <!-- Personal Mode: Standard Button -->
         <button type="button" id="wpppc-product-express-button" class="button alt">
             <img src="<?php echo WPPPC_PLUGIN_URL; ?>assets/images/ppl-button-standard.png" alt="PayPal" style="height: 50px; width: 100%; cursor: pointer;" />
         </button>
-    </div>
+    <?php endif; ?>
+</div>
     
     <!-- Address Form Modal -->
     <div id="wpppc-express-modal" class="wpppc-modal" style="display:none;">
@@ -396,6 +421,13 @@ public function calculate_shipping_methods() {
             return;
         }
         
+         $server_manager = WPPPC_Server_Manager::get_instance();
+        $server = $server_manager->get_selected_server();
+        
+        if (!$server) {
+            $server = $server_manager->get_next_available_server();
+        }
+        
         // Ensure WooCommerce scripts are loaded
         wp_enqueue_script('wc-add-to-cart');
         wp_enqueue_script('wc-cart-fragments');
@@ -426,9 +458,116 @@ public function calculate_shipping_methods() {
                 'processing' => __('Processing...', 'woo-paypal-proxy-client'),
             )
         ));
+        
+        // Get server and prepare data for product express
+        if ($server && empty($server->is_personal)) {
+            // Business mode - get iframe URL for product
+            $api_handler = new WPPPC_API_Handler();
+            $iframe_url = $this->generate_product_iframe_url($api_handler);
+            
+            // Localize both express and server data to product-express.js
+            wp_localize_script('wpppc-product-express', 'wpppc_express_params', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('wpppc-product-express'),
+                'iframe_url' => $iframe_url,
+                'cart_total' => '0',
+                'currency' => get_woocommerce_currency(),
+                'shipping_required' => false,
+                'is_checkout_page' => false,
+                'is_cart_page' => false,
+                'is_product_page' => true,
+                'debug_mode' => true
+            ));
+            
+            wp_localize_script('wpppc-product-express', 'wpppc_server_mode', array(
+                'is_business_mode' => true,
+                'iframe_url' => $iframe_url
+            ));
+        } else {
+            wp_localize_script('wpppc-product-express', 'wpppc_server_mode', array(
+                'is_business_mode' => false
+            ));
+        }
     }
     
+/**
+ * Generate iframe URL for product page with product price
+ */
+private function generate_product_iframe_url($api_handler) {
+    global $product;
 
+    // Ensure we have a valid product object
+    if (!$product instanceof WC_Product) {
+        $product = wc_get_product(get_the_ID());
+    }
+
+    if (!$product) {
+        return '';
+    }
+
+    // Get product price safely
+    $price = $product->get_price();
+
+    if (empty($price) && $product->is_type('variable')) {
+        $price = $product->get_variation_price('min');
+    }
+    
+    $server = $api_handler->get_server();
+    if (!$server) {
+        return '';
+    }
+    
+    // Get callback URL
+    $callback_url = WC()->api_request_url('wpppc_shipping');
+    
+    // Generate a hash for security
+    $timestamp = time();
+    $hash_data = $timestamp . 'express_checkout' . $server->api_key;
+    $hash = hash_hmac('sha256', $hash_data, $server->api_secret);
+    
+    // Build the iframe URL with product price
+    $params = array(
+        'rest_route'       => '/wppps/v1/express-paypal-buttons',
+        'amount'           => $price,
+        'currency'         => get_woocommerce_currency(),
+        'api_key'          => $server->api_key,
+        'timestamp'        => $timestamp,
+        'hash'             => $hash,
+        'callback_url'     => base64_encode($callback_url),
+        'site_url'         => base64_encode(get_site_url()),
+        'server_id'        => $server->id,
+        'needs_shipping'   => 'unknown', // Will be determined after add to cart
+        'express'          => 'yes',
+        'product_page'     => 'yes'
+    );
+    
+    return $server->url . '?' . http_build_query($params);
+}
+
+/**
+ * AJAX handler to get current cart totals
+ */
+public function get_cart_totals() {
+    check_ajax_referer('wpppc-product-express', 'nonce');
+    
+    if (WC()->cart->is_empty()) {
+        wp_send_json_error(array('message' => __('Cart is empty.', 'woo-paypal-proxy-client')));
+    }
+    
+    // Calculate totals
+    WC()->cart->calculate_totals();
+    
+    $totals = array(
+        'total' => floatval(WC()->cart->get_total('edit')),
+        'subtotal' => floatval(WC()->cart->get_subtotal()),
+        'shipping' => floatval(WC()->cart->get_shipping_total()),
+        'tax' => floatval(WC()->cart->get_total_tax()),
+        'shipping_method' => '', // Will be determined later
+        'shipping_method_label' => ''
+    );
+    
+    wp_send_json_success($totals);
+}
     
 /**
  * Fallback add-to-cart handler
