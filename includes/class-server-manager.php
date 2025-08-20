@@ -197,15 +197,11 @@ class WPPPC_Server_Manager {
                             </td>
                             
                             <td>
-                                <?php if ($server->is_personal): ?>
-                                    <?php 
-                                    $express_text = $server->personal_express ? __('On', 'woo-paypal-proxy-client') : __('Off', 'woo-paypal-proxy-client');
-                                    $express_class = $server->personal_express ? 'express-on' : 'express-off';
-                                    ?>
-                                    <span class="status-badge <?php echo $express_class; ?>"><?php echo $express_text; ?></span>
-                                <?php else: ?>
-                                    <span class="status-badge na">—</span>
-                                <?php endif; ?>
+                                <?php 
+                                $express_text = $server->personal_express ? __('On', 'woo-paypal-proxy-client') : __('Off', 'woo-paypal-proxy-client');
+                                $express_class = $server->personal_express ? 'express-on' : 'express-off';
+                                ?>
+                                <span class="status-badge <?php echo $express_class; ?>"><?php echo $express_text; ?></span>
                             </td>
                                                         
                             <td>

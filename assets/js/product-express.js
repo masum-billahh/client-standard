@@ -14,6 +14,19 @@ jQuery(document).ready(function($) {
             this.initFloatingLabels();
             this.originalButtonHtml = $('#wpppc-product-express-button').html();
             this.isProcessing = false; 
+            const style = document.createElement('style');
+            style.innerHTML = `
+                .express-paypal-iframe-expanded {
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    z-index: 9999 !important;
+                }
+            `;
+            document.head.appendChild(style);
+                        
             // Check if this is business mode
             if (typeof wpppc_server_mode !== 'undefined' && wpppc_server_mode.is_business_mode) {
                 isBusinessMode = true;
@@ -22,6 +35,7 @@ jQuery(document).ready(function($) {
                 isBusinessMode = false;
             }
         },
+        
         
         // Express checkout iframe functions for business mode
 createExpressButtonIframe: function(target) {
@@ -108,6 +122,11 @@ handleIframeMessages: function(event) {
             if (iframe) {
                 iframe.style.height = "100%";
             }
+            // Remove any padding from container
+            var container = document.querySelector('#wpppc-product-express-iframe-container');
+            if (container) {
+                container.style.padding = '0';
+            }
             break;
             
         case 'resize_iframe_normal':
@@ -115,6 +134,11 @@ handleIframeMessages: function(event) {
             var iframe = document.getElementById("paypal-express-iframe-wpppc-product-express-iframe-container");
             if (iframe) {
                 iframe.style.height = "56px";
+            }
+            // Restore padding
+            var container = document.querySelector('#wpppc-product-express-iframe-container');
+            if (container) {
+                container.style.padding = "30px";
             }
             break;
             
@@ -130,16 +154,18 @@ handleIframeMessages: function(event) {
 completeExpressCheckout: function(paymentData) {
     console.log('Completing express checkout with payment data', paymentData);
     var self = this;
+    var container = '#wpppc-product-express-iframe-container';
     
     if (!this.wcOrderId || !this.paypalOrderId) {
         console.error('Missing order IDs for completion');
+        self.showExpressError('Missing order information. Please try again.');
         return;
     }
     
     // Show loading
-    self.showExpressLoading('Finalizing your order...');
+    self.showExpressLoading('Fetching order details...', container);
     
-     $.ajax({
+    $.ajax({
         url: wpppc_express_params.ajax_url,
         type: 'POST',
         data: {
@@ -149,41 +175,48 @@ completeExpressCheckout: function(paymentData) {
             paypal_order_id: self.paypalOrderId
         },
         success: function(detailsResponse) {
-            
-            
+            console.log('Got PayPal order details:', detailsResponse);
+            finalizePayment();
         },
         error: function(xhr, status, error) {
             console.error('Error fetching PayPal order details:', error);
-            
+            finalizePayment();
         }
     });
     
-    // Complete the order via AJAX
-    $.ajax({
-        url: wpppc_express_params.ajax_url,
-        type: 'POST',
-        data: {
-            action: 'wpppc_complete_express_order',
-            nonce: wpppc_express_params.nonce,
-            order_id: self.wcOrderId,
-            paypal_order_id: self.paypalOrderId
-        },
-        success: function(response) {
-            if (response.success) {
-                console.log('Order completed successfully, redirecting to:', response.data.redirect);
-                self.showExpressMessage('Payment successful! Redirecting to order confirmation...');
+    // Finalize payment
+    function finalizePayment() {
+        self.showExpressLoading('Finalizing your order...', container);
+        
+        $.ajax({
+            url: wpppc_express_params.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'wpppc_complete_express_order',
+                nonce: wpppc_express_params.nonce,
+                order_id: self.wcOrderId,
+                paypal_order_id: self.paypalOrderId
+            },
+            success: function(response) {
+                self.hideExpressLoading(container);
                 
-                setTimeout(function() {
-                    window.location.href = response.data.redirect;
-                }, 1000);
-            } else {
-                self.showExpressError(response.data.message || 'Failed to complete order');
+                if (response.success) {
+                    console.log('Order completed successfully, redirecting to:', response.data.redirect);
+                    self.showExpressMessage('Payment successful! Redirecting to order confirmation...', container);
+                    
+                    setTimeout(function() {
+                        window.location.href = response.data.redirect;
+                    }, 1000);
+                } else {
+                    self.showExpressError(response.data.message || 'Failed to complete order', container);
+                }
+            },
+            error: function() {
+                self.hideExpressLoading(container);
+                self.showExpressError('Error communicating with the server', container);
             }
-        },
-        error: function() {
-            self.showExpressError('Error communicating with the server');
-        }
-    });
+        });
+    }
 },
 
 
@@ -205,17 +238,52 @@ sendMessageToIframe: function(message) {
     iframe.contentWindow.postMessage(message, '*');
 },
 
-showExpressLoading: function(message) {
+showExpressLoading: function(message, container) {
+    var targetContainer = container || '#wpppc-product-express-iframe-container';
+    var loadingHtml = '<div class="wpppc-express-loading"><div class="wpppc-express-spinner"></div><span>' + message + '</span></div>';
+    
+    $(targetContainer).find('.wpppc-express-loading').remove();
+    $(targetContainer).append(loadingHtml);
+    $(targetContainer).find('.wpppc-express-loading').show();
+    
     console.log('Loading: ' + message);
-    // You can add loading UI here if needed
 },
 
-showExpressError: function(message) {
+hideExpressLoading: function(container) {
+    var targetContainer = container || '#wpppc-product-express-iframe-container';
+    $(targetContainer).find('.wpppc-express-loading').hide();
+},
+
+showExpressError: function(message, container) {
+    var targetContainer = container || '#wpppc-product-express-iframe-container';
+    
+    // Create error message element if it doesn't exist
+    if ($(targetContainer).find('#wpppc-express-error').length === 0) {
+        $(targetContainer).append('<div id="wpppc-express-error" style="display:none; color: #e74c3c; background: #fdf2f2; padding: 10px; border: 1px solid #e74c3c; border-radius: 4px; margin: 10px 0;"></div>');
+    }
+    
+    $(targetContainer).find('#wpppc-express-error').text(message).show();
+    $(targetContainer).find('#wpppc-express-message').hide();
+    
+    // Scroll to the message
+    $('html, body').animate({
+        scrollTop: $(targetContainer).offset().top - 100
+    }, 300);
+    
     console.error('Express Error: ' + message);
-    alert(message); // Simple alert for now
 },
 
-showExpressMessage: function(message) {
+showExpressMessage: function(message, container) {
+    var targetContainer = container || '#wpppc-product-express-iframe-container';
+    
+    // Create success message element if it doesn't exist
+    if ($(targetContainer).find('#wpppc-express-message').length === 0) {
+        $(targetContainer).append('<div id="wpppc-express-message" style="display:none; color: #27ae60; background: #f0f9f0; padding: 10px; border: 1px solid #27ae60; border-radius: 4px; margin: 10px 0;"></div>');
+    }
+    
+    $(targetContainer).find('#wpppc-express-message').text(message).show();
+    $(targetContainer).find('#wpppc-express-error').hide();
+    
     console.log('Express Message: ' + message);
 },
 
@@ -281,25 +349,25 @@ createExpressOrderFromCart: function() {
                         } else {
                             self.isProcessing = false;
                             console.error('Failed to create express order:', orderResponse.data.message);
-                            alert(orderResponse.data.message || 'Failed to create order');
+                            self.showExpressError(orderResponse.data.message || 'Failed to create order');
                         }
                     },
                     error: function() {
                         self.isProcessing = false;
                         console.error('Error creating express order');
-                        alert('Error creating order. Please try again.');
+                        self.showExpressError('Error creating order. Please try again.');
                     }
                 });
             } else {
                 self.isProcessing = false;
                 console.error('Failed to get cart totals');
-                alert('Error getting cart totals. Please try again.');
+                self.showExpressError('Error getting cart totals. Please try again.');
             }
         },
         error: function() {
             self.isProcessing = false;
             console.error('Error getting cart totals');
-            alert('Error communicating with server. Please try again.');
+            self.showExpressError('Error communicating with server. Please try again.');
         }
     });
 },
@@ -384,7 +452,8 @@ createExpressOrderFromCart: function() {
             self.createExpressOrderFromCart();
         } else {
             self.isProcessing = false;
-            alert('Failed to add product to cart. Please try again.');
+            self.showExpressError('Failed to add product to cart. Please try again.');
+
         }
     });
 },
@@ -879,7 +948,7 @@ hideStateField: function($container) {
                         action: 'resume_checkout_failed',
                         error: 'Failed to add product to cart'
                     });
-                    alert('Failed to add product to cart. Please try again.');
+                    self.showExpressError('Failed to add product to cart. Please try again.');
                 }
             });
         },
