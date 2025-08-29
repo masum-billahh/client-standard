@@ -111,7 +111,7 @@ function wpppc_add_gateway($gateways) {
 function wpppc_enqueue_scripts() {
     if (is_checkout()) {
         wp_enqueue_style('wpppc-checkout-style', WPPPC_PLUGIN_URL . 'assets/css/checkout.css', array(), WPPPC_VERSION);
-        wp_enqueue_script('wpppc-checkout-script', WPPPC_PLUGIN_URL . 'assets/js/checkout.js', array('jquery'), WPPPC_VERSION, true);
+        wp_enqueue_script('wpppc-checkout-script', WPPPC_PLUGIN_URL . 'assets/js/checkout.js', array('jquery'), time(), true);
         
         // Add localized data for the script
         wp_localize_script('wpppc-checkout-script', 'wpppc_params', array(

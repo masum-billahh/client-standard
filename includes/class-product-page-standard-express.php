@@ -179,7 +179,7 @@ public function get_states_by_country() {
     <?php else: ?>
         <!-- Personal Mode: Standard Button -->
         <button type="button" id="wpppc-product-express-button" class="button alt">
-            <img src="<?php echo WPPPC_PLUGIN_URL; ?>assets/images/ppl-button-standard.png" alt="PayPal" style="height: 50px; width: 100%; cursor: pointer;" />
+            <img src="<?php echo WPPPC_PLUGIN_URL; ?>assets/images/paypal.svg" alt="PayPal" style="height: 30px; width: 100%; cursor: pointer;" />
         </button>
     <?php endif; ?>
 </div>

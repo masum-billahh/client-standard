@@ -27,6 +27,16 @@
     var orderID = null;
     var fundingSource = null;
     
+     function getBillingAddress() {
+    return {
+        addressLine1: $('#billing_address_1').val() || '',
+        addressLine2: $('#billing_address_2').val() || '',
+        adminArea1: $('#billing_state').val() || '',
+        adminArea2: $('#billing_city').val() || '',
+        postalCode: $('#billing_postcode').val() || '',
+        countryCode: $('#billing_country').val() || 'US'
+    };
+}
     // Store error messages
     var errorMessages = {};
     
@@ -100,6 +110,24 @@
             switch (data.action) {
             case 'button_loaded':
                 paypalButtonLoaded = true;
+                break;
+            
+            case 'get_billing_data':
+                // Collect billing data from WooCommerce fields
+                const billingAddress = {
+                    addressLine1: $('#billing_address_1').val() || '',
+                    addressLine2: $('#billing_address_2').val() || '',
+                    adminArea1: $('#billing_state').val() || '',     // State/Province
+                    adminArea2: $('#billing_city').val() || '',      // City
+                    postalCode: $('#billing_postcode').val() || '',
+                    countryCode: $('#billing_country').val() || ''   // ISO code, e.g., 'US'
+                };
+
+                // Send response back to iframe
+                sendMessageToIframe({
+                    action: 'billing_data_response',
+                    billingAddress: billingAddress
+                });
                 break;
                 
             case 'button_clicked':
@@ -199,7 +227,8 @@ function handlePayPalButtonClick() {
                 action: 'create_paypal_order',
                 order_id: orderID,
                 order_key: orderData.order_key,
-                proxy_data: orderData.proxy_data
+                proxy_data: orderData.proxy_data,
+                billing_address: getBillingAddress()
             });
         }).catch(function(error) {
             creatingOrder = false;

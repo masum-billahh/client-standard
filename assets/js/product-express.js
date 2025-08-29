@@ -941,13 +941,10 @@ hideStateField: function($container) {
             this.addToCartViaAjax($productForm, function(success, responseData) {
                 if (success) {
                     console.log('Product added to cart, now creating express order...');
-                    self.createExpressOrderFromCart();
+                    self.showModal();
                 } else {
                     self.isProcessing = false;
-                    self.sendMessageToIframe({
-                        action: 'resume_checkout_failed',
-                        error: 'Failed to add product to cart'
-                    });
+                    
                     self.showExpressError('Failed to add product to cart. Please try again.');
                 }
             });
