@@ -69,7 +69,7 @@ function wpppc_init() {
     
     require_once WPPPC_PLUGIN_DIR . 'includes/class-express-checkout.php';
     require_once WPPPC_PLUGIN_DIR . 'includes/class-paypal-standard-proxy-gateway.php';
-require_once WPPPC_PLUGIN_DIR . 'includes/class-standard-proxy-client.php';
+    require_once WPPPC_PLUGIN_DIR . 'includes/class-standard-proxy-client.php';
 
 //product page standard express
 require_once WPPPC_PLUGIN_DIR . 'includes/class-product-page-standard-express.php';
