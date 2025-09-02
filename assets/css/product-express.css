@@ -384,6 +384,13 @@ body.wpppc-modal-open {
     .wpppc-field-container select {
         font-size: 16px; /* Prevent zoom on iOS */
     }
+    #wpppc-product-express-button{
+        padding: 5px 100px;
+    }
+    #wpppc-product-express-button img{
+        height: auto !important;
+        width: 80% !important;
+    }
 }
 
 /* Loading state for select fields */

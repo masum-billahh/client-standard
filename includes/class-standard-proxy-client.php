@@ -145,7 +145,7 @@ public function enqueue_checkout_scripts() {
             'wpppc-checkout-custom', 
             plugin_dir_url(dirname(__FILE__)) . 'assets/css/standard.css', 
             array(), 
-            '1.0.0'
+            time()
         );
         
         // Pass data to JavaScript
@@ -162,9 +162,9 @@ public function enqueue_checkout_scripts() {
 public function add_paypal_button_html() {
     ?>
     <div id="wpppc-paypal-button" style="display: none;">
-        <img src="<?php echo plugin_dir_url(dirname(__FILE__)) . 'assets/images/ppl-button-standard.png'; ?>" 
+        <img src="<?php echo WPPPC_PLUGIN_URL; ?>assets/images/paypal.svg" 
              alt="Pay with PayPal" 
-             style="cursor: pointer; max-width: 100%; height: auto;" 
+             style="width: 100%; cursor: pointer;" 
              id="wpppc-paypal-btn-img" />
     </div>
     <?php

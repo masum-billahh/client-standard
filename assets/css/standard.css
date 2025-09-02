@@ -21,6 +21,11 @@ body.woocommerce-checkout #place_order.wpppc-hidden {
 #wpppc-paypal-button {
     position: relative;
     z-index: 1;
+    background: #ffc439;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 170px;
+    cursor: pointer;
 }
 
 
@@ -31,8 +36,11 @@ body.woocommerce-checkout #place_order.wpppc-hidden {
 /* Responsive design for mobile */
 @media (max-width: 768px) {
     #wpppc-paypal-btn-img {
-        max-width: 100%;
-        width: 100%;
+        height: auto !important;
+        width: 80% !important;
+    }
+    #wpppc-paypal-button{
+        padding: 5px 130px;
     }
 }
 
