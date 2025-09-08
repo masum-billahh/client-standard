@@ -38,7 +38,8 @@ class WPPPC_Product_Page_Express {
     // AJAX handler for getting cart totals
 add_action('wp_ajax_wpppc_get_cart_totals', array($this, 'get_cart_totals'));
 add_action('wp_ajax_nopriv_wpppc_get_cart_totals', array($this, 'get_cart_totals'));
-
+add_action('wp_ajax_wpppc_validate_product', array($this, 'validate_product'));
+add_action('wp_ajax_nopriv_wpppc_validate_product', array($this, 'validate_product'));
     }
     
     public function update_totals_only() {
@@ -568,6 +569,57 @@ public function get_cart_totals() {
     
     wp_send_json_success($totals);
 }
+    
+public function validate_product() {
+    if (isset($_POST['nonce']) && !wp_verify_nonce($_POST['nonce'], 'wpppc-product-express')) {
+        wp_send_json_error(array('error_message' => 'Security check failed'));
+    }
+    
+    // Clear any existing notices first
+    wc_clear_notices();
+    
+    $product_id = isset($_POST['add-to-cart']) ? absint($_POST['add-to-cart']) : 0;
+    $quantity = isset($_POST['quantity']) ? wc_stock_amount($_POST['quantity']) : 1;
+    $variation_id = isset($_POST['variation_id']) ? absint($_POST['variation_id']) : 0;
+    $variation = array();
+    
+    foreach ($_POST as $key => $value) {
+        if (strpos($key, 'attribute_') === 0) {
+            $variation[sanitize_title($key)] = sanitize_text_field($value);
+        }
+    }
+    
+    if (!$product_id) {
+        wp_send_json_error(array('error_message' => 'No product specified'));
+    }
+    
+    $product = wc_get_product($variation_id ? $variation_id : $product_id);
+    if (!$product || !$product->is_purchasable()) {
+        wp_send_json_error(array('error_message' => 'Product not available'));
+    }
+    
+    $_REQUEST = $_POST;
+    $cart_item_data = array();
+    $passed_validation = apply_filters('woocommerce_add_to_cart_validation', true, $product_id, $quantity, $variation_id, $variation, $cart_item_data);
+    
+    if (!$passed_validation) {
+        $error_messages = array();
+        $notices = wc_get_notices('error');
+        foreach ($notices as $notice) {
+            $message = is_string($notice) ? $notice : $notice['notice'];
+            $message = wp_specialchars_decode($message, ENT_QUOTES);
+            if (!in_array($message, $error_messages)) {
+                $error_messages[] = $message;
+            }
+        }
+        wc_clear_notices();
+        
+        $error_message = !empty($error_messages) ? implode(', ', $error_messages) : 'Product validation failed';
+        wp_send_json_error(array('error_message' => $error_message));
+    }
+    
+    wp_send_json_success();
+} 
     
 /**
  * Fallback add-to-cart handler

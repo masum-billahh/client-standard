@@ -152,27 +152,31 @@ handleIframeMessages: function(event) {
             
         case 'validate_before_paypal':
             var $productForm = $('form.cart');
-            var valid = true;
             
-            // Check variations
-            if (wpppc_product_express.is_variable) {
-                var variation_id = $('form.variations_form').find('input[name="variation_id"]').val();
-                if (!variation_id || variation_id == '0') {
-                    alert(wpppc_product_express.i18n.select_options);
-                    valid = false;
+            // Use backend validation via AJAX
+            var formData = new FormData($productForm[0]);
+            formData.append('action', 'wpppc_validate_product');
+            formData.append('nonce', wpppc_product_express.nonce);
+            
+            $.ajax({
+                url: wpppc_product_express.ajax_url,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        self.sendMessageToIframe({ action: 'validation_passed' });
+                    } else {
+                        alert(response.data.error_message || wpppc_product_express.i18n.select_options);
+                        self.sendMessageToIframe({ action: 'validation_failed' });
+                    }
+                },
+                error: function() {
+                    alert('Validation error occurred');
+                    self.sendMessageToIframe({ action: 'validation_failed' });
                 }
-            }
-            
-            // Check required fields
-            if (valid) {
-                valid = this.validateInputFieldsOnly($productForm);
-            }
-            
-            if (valid) {
-                self.sendMessageToIframe({ action: 'validation_passed' });
-            } else {
-                self.sendMessageToIframe({ action: 'validation_failed' });
-            }
+            });
             break;
     }
 },
