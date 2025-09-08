@@ -35,16 +35,7 @@ class WPPPC_Advanced_Card_Gateway extends WC_Payment_Gateway {
         // Hooks
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
         
-        // AJAX handlers for card processing
-        add_action('wp_ajax_wpppc_card_validate_checkout', array($this, 'ajax_validate_checkout'));
-        add_action('wp_ajax_nopriv_wpppc_card_validate_checkout', array($this, 'ajax_validate_checkout'));
-        add_action('wp_ajax_wpppc_card_create_order', array($this, 'ajax_create_order'));
-        add_action('wp_ajax_nopriv_wpppc_card_create_order', array($this, 'ajax_create_order'));
-        add_action('wp_ajax_wpppc_card_complete_order', array($this, 'ajax_complete_order'));
-        add_action('wp_ajax_nopriv_wpppc_card_complete_order', array($this, 'ajax_complete_order'));
-
-        add_action('wp_ajax_wpppc_card_create_order_after_payment', array($this, 'ajax_create_order_after_payment'));
-        add_action('wp_ajax_nopriv_wpppc_card_create_order_after_payment', array($this, 'ajax_create_order_after_payment'));
+     
     }
     
     public function init_form_fields() {
@@ -59,14 +50,14 @@ class WPPPC_Advanced_Card_Gateway extends WC_Payment_Gateway {
                 'title'       => __('Title', 'woo-paypal-proxy-client'),
                 'type'        => 'text',
                 'description' => __('This controls the title which the user sees during checkout.', 'woo-paypal-proxy-client'),
-                'default'     => __('Credit Card', 'woo-paypal-proxy-client'),
+                'default'     => __('Credit/Debit Card(Direct)', 'woo-paypal-proxy-client'),
                 'desc_tip'    => true,
             ),
             'description' => array(
                 'title'       => __('Description', 'woo-paypal-proxy-client'),
                 'type'        => 'textarea',
                 'description' => __('This controls the description which the user sees during checkout.', 'woo-paypal-proxy-client'),
-                'default'     => __('Pay securely with your credit card.', 'woo-paypal-proxy-client'),
+                'default'     => __('Pay securely with your credit/debit card.', 'woo-paypal-proxy-client'),
                 'desc_tip'    => true,
             ),
         );

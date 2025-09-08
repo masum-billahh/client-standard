@@ -283,6 +283,143 @@ function wpppc_validate_checkout_fields() {
 }
 add_action('wp_ajax_wpppc_validate_checkout', 'wpppc_validate_checkout_fields');
 add_action('wp_ajax_nopriv_wpppc_validate_checkout', 'wpppc_validate_checkout_fields');
+/**
+ * AJAX handler for advanced card checkout validation
+ */
+function wpppc_card_validate_checkout_handler() {
+    // Verify nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'wpppc-card-nonce')) {
+        wp_send_json_error(array(
+            'message' => 'Security check failed'
+        ));
+        wp_die();
+    }
+    
+    $errors = array();
+    
+    // Get checkout fields
+    $fields = WC()->checkout()->get_checkout_fields();
+    
+    // Check if shipping to different address
+    $ship_to_different_address = !empty($_POST['ship_to_different_address']);
+    
+    // Check if creating account
+    $create_account = !empty($_POST['createaccount']);
+    
+    // Loop through field groups and validate conditionally
+    foreach ($fields as $fieldset_key => $fieldset) {
+        // Skip shipping fields if not shipping to different address
+        if ($fieldset_key === 'shipping' && !$ship_to_different_address) {
+            continue;
+        }
+        
+        // Skip account fields if not creating account
+        if ($fieldset_key === 'account' && !$create_account) {
+            continue;
+        }
+        
+        foreach ($fieldset as $key => $field) {
+            // Only validate required fields that are empty
+            if (!empty($field['required']) && empty($_POST[$key])) {
+                $errors[$key] = sprintf(__('%s is a required field.', 'woocommerce'), $field['label']);
+            }
+        }
+    }
+    
+    if (empty($errors)) {
+        wp_send_json_success(array('valid' => true));
+    } else {
+        wp_send_json_error(array('valid' => false, 'errors' => $errors));
+    }
+    
+    wp_die();
+}
+
+/**
+ * AJAX handler for creating order after PayPal card payment
+ */
+function wpppc_card_create_order_after_payment_handler() {
+    // Verify nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'wpppc-card-nonce')) {
+        wp_send_json_error(array(
+            'message' => 'Security check failed'
+        ));
+        wp_die();
+    }
+    
+    $paypal_order_id = isset($_POST['paypal_order_id']) ? sanitize_text_field($_POST['paypal_order_id']) : '';
+    $transaction_id = isset($_POST['transaction_id']) ? sanitize_text_field($_POST['transaction_id']) : '';
+    
+    if (empty($paypal_order_id)) {
+        wp_send_json_error(array(
+            'message' => 'Invalid PayPal order ID'
+        ));
+        wp_die();
+    }
+    
+    try {
+        // Set payment method for the order creation
+        $_POST['payment_method'] = 'paypal_advanced_card';
+        
+        // Create WooCommerce order using existing checkout process
+        $checkout = WC()->checkout();
+        
+        // Process checkout and create order
+        $order_id = $checkout->create_order($_POST);
+        
+        if (is_wp_error($order_id)) {
+            throw new Exception($order_id->get_error_message());
+        }
+        
+        $order = wc_get_order($order_id);
+        
+        if (!$order) {
+            throw new Exception('Failed to create order');
+        }
+        
+        // Complete the payment immediately since PayPal already processed it
+        $order->payment_complete($transaction_id);
+        
+        // Add order notes
+        $order->add_order_note(
+            sprintf(__('PayPal payment completed. PayPal Order ID: %s, Transaction ID: %s', 'woo-paypal-proxy-client'),
+                $paypal_order_id,
+                $transaction_id
+            )
+        );
+        
+        // Store PayPal transaction details
+        update_post_meta($order_id, '_paypal_order_id', $paypal_order_id);
+        update_post_meta($order_id, '_paypal_transaction_id', $transaction_id);
+        
+        // Update status to processing
+        $order->update_status('processing');
+        
+        // Empty cart
+        WC()->cart->empty_cart();
+        
+        // Return success with redirect URL
+        wp_send_json_success(array(
+            'order_id' => $order_id,
+            'redirect' => $order->get_checkout_order_received_url()
+        ));
+        
+    } catch (Exception $e) {
+        error_log('PayPal Card - Error creating order after payment: ' . $e->getMessage());
+        wp_send_json_error(array(
+            'message' => 'Error creating order: ' . $e->getMessage()
+        ));
+    }
+    
+    wp_die();
+}
+
+// Register the AJAX handlers for advanced card payment
+add_action('wp_ajax_wpppc_card_validate_checkout', 'wpppc_card_validate_checkout_handler');
+add_action('wp_ajax_nopriv_wpppc_card_validate_checkout', 'wpppc_card_validate_checkout_handler');
+
+add_action('wp_ajax_wpppc_card_create_order_after_payment', 'wpppc_card_create_order_after_payment_handler');
+add_action('wp_ajax_nopriv_wpppc_card_create_order_after_payment', 'wpppc_card_create_order_after_payment_handler');
 
 /**
  * Add settings link on plugin page
