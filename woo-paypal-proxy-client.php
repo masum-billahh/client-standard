@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce PayPal Proxy Client
  * Plugin URI: https://www.upwork.com/freelancers/~01a6e65817b86d4589
  * Description: Connects to multiple PayPal proxy servers with load balancing
- * Version: 1.1.0
+ * Version: 4.0.0
  * Author: Masum Billah
  * Author URI: https://www.upwork.com/freelancers/~01a6e65817b86d4589
  * Text Domain: woo-paypal-proxy-client
