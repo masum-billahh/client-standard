@@ -483,6 +483,26 @@ function wpppc_card_create_order_after_payment_handler() {
         // Update status to processing
         $order->update_status('processing');
         
+        // Get server ID from selected server
+        require_once WPPPC_PLUGIN_DIR . 'includes/class-server-manager.php';
+        $server_manager = WPPPC_Server_Manager::get_instance();
+        $server = $server_manager->get_selected_server();
+        $server_id = $server ? $server->id : 0;
+        
+        $api_handler = new WPPPC_API_Handler($server_id);
+        $mirror_response = $api_handler->mirror_order_to_server($order, $paypal_order_id, $transaction_id);
+        
+        if ($server_id) {
+            // Get the order total amount
+            $order_amount = floatval($order->get_total());
+            
+            // Update usage with order amount
+            $result = $server_manager->add_server_usage($server_id, $order_amount);
+           
+        } else {
+            error_log('PayPal Proxy - No server_id found, cannot add usage');
+        }
+        
         // Empty cart
         WC()->cart->empty_cart();
         
@@ -1279,9 +1299,7 @@ function wpppc_complete_order_handler() {
             
             // Update usage with order amount
             $result = $server_manager->add_server_usage($server_id, $order_amount);
-            error_log('PayPal Proxy - Result of add_server_usage: ' . ($result ? 'success' : 'failed'));
-            
-            error_log('PayPal Proxy - Added ' . $order_amount . ' to server usage for server ID ' . $server_id);
+           
         } else {
             error_log('PayPal Proxy - No server_id found, cannot add usage');
         }
