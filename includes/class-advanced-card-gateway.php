@@ -15,7 +15,7 @@ class WPPPC_Advanced_Card_Gateway extends WC_Payment_Gateway {
     
     public function __construct() {
         $this->id                 = 'paypal_advanced_card';
-        $this->icon               = apply_filters('woocommerce_paypal_advanced_card_icon', WPPPC_PLUGIN_URL . 'assets/images/cards.svg');
+        $this->icon               = apply_filters('woocommerce_paypal_advanced_card_icon', WPPPC_PLUGIN_URL . 'assets/images/paypal.svg');
         $this->has_fields         = true;
         $this->method_title       = __('Credit Card (PayPal)', 'woo-paypal-proxy-client');
         $this->method_description = __('Accept credit card payments securely through PayPal CardFields.', 'woo-paypal-proxy-client');

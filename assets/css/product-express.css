@@ -32,7 +32,16 @@
     right: 20px;
     top: 10px;
 }
-
+.wpppc-modern-form input {
+    height: 36px;
+}
+.wpppc-modern-form select {
+    height: auto;
+    padding: 8px !important;
+}
+.wpppc-modal-content h2{
+    font-size: 1.4em;
+}
 .wpppc-modal-close:hover,
 .wpppc-modal-close:focus {
     color: #000;
@@ -103,7 +112,7 @@
 }
 
 .wpppc-form-actions button {
-    padding: 5px 10px;
+    padding: 5px 100px;
     font-size: 16px;
     line-height: 1.4em !important;
 }

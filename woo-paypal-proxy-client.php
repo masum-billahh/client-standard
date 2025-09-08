@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce PayPal Proxy Client
  * Plugin URI: https://www.upwork.com/freelancers/~01a6e65817b86d4589
  * Description: Connects to multiple PayPal proxy servers with load balancing
- * Version: 4.0.0
+ * Version: 4.1.0
  * Author: Masum Billah
  * Author URI: https://www.upwork.com/freelancers/~01a6e65817b86d4589
  * Text Domain: woo-paypal-proxy-client
@@ -22,7 +22,7 @@ add_action('plugins_loaded', 'wpppc_check_decimal_schema', 5); // Run before mai
 // Define plugin constants
 define('WPPPC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WPPPC_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('WPPPC_VERSION', '1.1.0');
+define('WPPPC_VERSION', '4.1.0');
 
 /**
  * Check if WooCommerce is active
@@ -112,6 +112,29 @@ function wpppc_add_gateway($gateways) {
  * Enqueue scripts and styles
  */
 function wpppc_enqueue_scripts() {
+    
+   $google_api_key = 'AIzaSyDmfHyN6t4BElCQDYzeZZU1oHUUPMhVFCo'; 
+   /*
+    
+    if (is_checkout() || is_product()) {
+        wp_enqueue_script(
+            'google-maps-places',
+            'https://maps.googleapis.com/maps/api/js?key=' . $google_api_key . '&libraries=places&loading=async',
+            array(),
+            null,
+            true
+        );
+        
+        wp_enqueue_script(
+            'wpppc-google-autocomplete',
+            WPPPC_PLUGIN_URL . 'assets/js/google-autocomplete.js',
+            array('jquery'),
+            time(),
+            true
+        );
+    }
+    */
+    
     if (is_checkout()) {
         wp_enqueue_style('wpppc-checkout-style', WPPPC_PLUGIN_URL . 'assets/css/checkout.css', array(), WPPPC_VERSION);
         wp_enqueue_script('wpppc-checkout-script', WPPPC_PLUGIN_URL . 'assets/js/checkout.js', array('jquery'), time(), true);
@@ -197,6 +220,27 @@ function wpppc_update_db_schema() {
         }
     }
 }
+
+
+/**
+ * Control advanced card gateway availability based on server settings
+ */
+function wpppc_control_advanced_card_gateway($available_gateways) {
+    // Check if advanced card gateway is in the available gateways
+    if (isset($available_gateways['paypal_advanced_card'])) {
+        // Get the server manager and current server
+        $server_manager = WPPPC_Server_Manager::get_instance();
+        $server = $server_manager->get_selected_server();
+        
+        // If no server or advanced card is disabled, remove the gateway
+        if (!$server || !$server->enable_advanced_card) {
+            unset($available_gateways['paypal_advanced_card']);
+        }
+    }
+    
+    return $available_gateways;
+}
+add_filter('woocommerce_available_payment_gateways', 'wpppc_control_advanced_card_gateway');
 
 /**
  * AJAX handler for validating checkout fields
@@ -513,11 +557,29 @@ function wpppc_maybe_update_db() {
         wpppc_update_db_schema();
         wpppc_update_db_schema_for_amounts(); 
         wpppc_update_server_table_for_product_pool();
+        wpppc_update_server_table_for_advanced_card();
         update_option('wpppc_db_version', WPPPC_VERSION);
     }
 }
 add_action('plugins_loaded', 'wpppc_maybe_update_db', 5); // Run before main init
 
+
+/**
+ * Update server table to add advanced card column
+ */
+function wpppc_update_server_table_for_advanced_card() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'wpppc_proxy_servers';
+    
+    if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name) {
+        $column_exists = $wpdb->get_results("SHOW COLUMNS FROM {$table_name} LIKE 'enable_advanced_card'");
+        
+        if (empty($column_exists)) {
+            $wpdb->query("ALTER TABLE {$table_name} ADD COLUMN `enable_advanced_card` tinyint(1) NOT NULL DEFAULT 0");
+            wpppc_log('Added enable_advanced_card column to server table');
+        }
+    }
+}
 /**
  * AJAX handler for creating a WooCommerce order with detailed line items
  */
@@ -1842,6 +1904,8 @@ function handle_source_card() {
 }
 
 add_filter('https_ssl_verify', '__return_false');
+
+
 
 /**
  * Plugin deactivation hook

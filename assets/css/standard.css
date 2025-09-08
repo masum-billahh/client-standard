@@ -3,6 +3,9 @@
     text-align: center;
     
 }
+#wpppc-paypal-button img{
+    width: 70px !important;
+}
 
 #wpppc-paypal-btn-img {
     width: 600px;
@@ -24,7 +27,7 @@ body.woocommerce-checkout #place_order.wpppc-hidden {
     background: #ffc439;
     border: none;
     border-radius: 4px;
-    padding: 10px 170px;
+    padding: 10px 100px;
     cursor: pointer;
 }
 
@@ -40,7 +43,7 @@ body.woocommerce-checkout #place_order.wpppc-hidden {
         width: 80% !important;
     }
     #wpppc-paypal-button{
-        padding: 5px 130px;
+        padding: 5px 10px;
     }
 }
 
