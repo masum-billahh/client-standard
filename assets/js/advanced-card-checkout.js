@@ -287,6 +287,7 @@ function handleOrderApproved(payload) {
     
     // Now create the WooCommerce order since PayPal payment succeeded
     const formData = $('form.checkout').serialize();
+    const parsedData = parseFormData(formData);
     
     $.ajax({
         type: 'POST',

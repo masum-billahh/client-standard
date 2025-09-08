@@ -410,6 +410,17 @@ function wpppc_card_create_order_after_payment_handler() {
         $needs_shipping = WC()->cart->needs_shipping();
         
         if ($needs_shipping) {
+            
+            if (isset($_POST['shipping_method']) && !empty($_POST['shipping_method'])) {
+                $shipping_methods = is_array($_POST['shipping_method']) ? $_POST['shipping_method'] : array($_POST['shipping_method']);
+                
+                // Set the chosen shipping methods in session
+                WC()->session->set('chosen_shipping_methods', $shipping_methods);
+                
+                // Make sure cart shipping is calculated with the chosen method
+                WC()->cart->calculate_shipping();
+            }
+            
             // Check if shipping address fields are empty (user didn't fill shipping address)
             $shipping_fields_empty = (
                 empty($_POST['shipping_first_name']) &&
