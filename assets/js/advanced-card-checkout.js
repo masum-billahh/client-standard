@@ -136,23 +136,32 @@
     /**
      * Handle checkout form submission
      */
-    function handleCheckoutSubmission() {
-        $('form.checkout').on('checkout_place_order_paypal_advanced_card', function() {
-            // If we've already created an order, let the form submit normally
-            if (orderCreated && orderID) {
-                return true;
-            }
-            
-            // Prevent form submission and process card payment
-            if (cardFieldsReady) {
-                processCardPayment();
-            } else {
-                displayError('general', 'Card fields are not ready. Please try again.');
-            }
-            
-            return false;
-        });
-    }
+   function handleCheckoutSubmission() {
+    $(document).on('click', '#place_order', function(e) {
+        // Only handle if PayPal Advanced Card is selected
+        if ($('input[name="payment_method"]:checked').val() !== 'paypal_advanced_card') {
+            return true; // Let normal checkout proceed
+        }
+        
+        // If we've already created an order, let the form submit normally
+        if (orderCreated && orderID) {
+            return true;
+        }
+        
+        // Prevent the default form submission
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        
+        // Process our PayPal card payment
+        if (cardFieldsReady) {
+            processCardPayment();
+        } else {
+            displayError('general', 'Card fields are not ready. Please try again.');
+        }
+        
+        return false;
+    });
+}
     
    /**
  * Process card payment - Fixed version

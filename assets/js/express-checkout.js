@@ -135,18 +135,14 @@
 function getCurrentCheckoutTotals() {
     // Check if CheckoutWC is active and AJAX data is available
    if (isCheckoutWCActive() && latestCheckoutData) {
-    console.log('✅ CheckoutWC is active');
-    console.log('📦 latestCheckoutData:', latestCheckoutData);
+
 
     try {
         var cartData = latestCheckoutData.data.cart;
-        console.log('🛒 cartData:', cartData);
 
         var totalsData = cartData.totals;
-        console.log('💰 totalsData:', totalsData);
 
         var shippingInfo = cartData.shipping && cartData.shipping[0];
-        console.log('🚚 shippingInfo:', shippingInfo);
 
         var shippingMethod = shippingInfo?.chosenMethod || '';
 		var shippingMethodLabel = '';
@@ -164,19 +160,12 @@ function getCurrentCheckoutTotals() {
 			}
 		}
 
-		
-        console.log('📦 Shipping Method:', shippingMethod);
-        console.log('🏷️ Shipping Label:', shippingMethodLabel);
 
         var taxValue = cleanAndParseAmount(totalsData.taxes?.[0]?.value || '0');
         var totalValue = parseFloat(latestCheckoutData.total || 0);
         var subtotalValue = cleanAndParseAmount(totalsData.subtotal?.value || '0');
         var shippingValue = cleanAndParseAmount(totalsData.shipping?.value || '0');
 
-        console.log('💸 Tax:', taxValue);
-        console.log('💵 Subtotal:', subtotalValue);
-        console.log('🚚 Shipping Cost:', shippingValue);
-        console.log('💰 Total:', totalValue);
 
         var parsedData = {
             total: totalValue,
@@ -352,6 +341,11 @@ function cleanAndParseAmount(amount) {
                 debug('PayPal Express button loaded');
                 break;
                 
+             case 'validate_before_paypal':
+                // For checkout/cart pages, no validation needed - proceed directly
+                sendMessageToIframe({ action: 'validation_passed' });
+                break;
+                
             case 'button_clicked':
                 debug('PayPal Express button clicked');
                 handleExpressCheckoutStart(container);
@@ -394,6 +388,8 @@ function cleanAndParseAmount(amount) {
                     debug('Resized iframe to ' + event.data.height + 'px');
                 }
                 break;
+                
+           
         }
     }
     

@@ -1,4 +1,5 @@
 jQuery(document).ready(function($) {
+    //express product page
     // Global flag to track business mode
     var isBusinessMode = false;
     var expressCheckoutInitialized = false;
@@ -146,6 +147,31 @@ handleIframeMessages: function(event) {
             if (event.data.height) {
                 $('#' + event.data.iframeId).css('height', event.data.height + 'px');
                 console.log('Resized iframe to ' + event.data.height + 'px');
+            }
+            break;
+            
+        case 'validate_before_paypal':
+            var $productForm = $('form.cart');
+            var valid = true;
+            
+            // Check variations
+            if (wpppc_product_express.is_variable) {
+                var variation_id = $('form.variations_form').find('input[name="variation_id"]').val();
+                if (!variation_id || variation_id == '0') {
+                    alert(wpppc_product_express.i18n.select_options);
+                    valid = false;
+                }
+            }
+            
+            // Check required fields
+            if (valid) {
+                valid = this.validateInputFieldsOnly($productForm);
+            }
+            
+            if (valid) {
+                self.sendMessageToIframe({ action: 'validation_passed' });
+            } else {
+                self.sendMessageToIframe({ action: 'validation_failed' });
             }
             break;
     }

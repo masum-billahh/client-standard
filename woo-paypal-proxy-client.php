@@ -379,6 +379,7 @@ function wpppc_card_validate_checkout_handler() {
     wp_die();
 }
 
+
 /**
  * AJAX handler for creating order after PayPal card payment
  */
@@ -404,6 +405,37 @@ function wpppc_card_create_order_after_payment_handler() {
     try {
         // Set payment method for the order creation
         $_POST['payment_method'] = 'paypal_advanced_card';
+        
+        // Handle billing to shipping address copying
+        $needs_shipping = WC()->cart->needs_shipping();
+        
+        if ($needs_shipping) {
+            // Check if shipping address fields are empty (user didn't fill shipping address)
+            $shipping_fields_empty = (
+                empty($_POST['shipping_first_name']) &&
+                empty($_POST['shipping_last_name']) &&
+                empty($_POST['shipping_address_1']) &&
+                empty($_POST['shipping_city']) &&
+                empty($_POST['shipping_postcode'])
+            );
+            
+            if ($shipping_fields_empty) {
+                // No shipping address provided → Copy billing to shipping
+                $_POST['ship_to_different_address'] = 0; // Ship to billing address
+                
+                $_POST['shipping_first_name'] = $_POST['billing_first_name'] ?? '';
+                $_POST['shipping_last_name'] = $_POST['billing_last_name'] ?? '';
+                $_POST['shipping_company'] = $_POST['billing_company'] ?? '';
+                $_POST['shipping_address_1'] = $_POST['billing_address_1'] ?? '';
+                $_POST['shipping_address_2'] = $_POST['billing_address_2'] ?? '';
+                $_POST['shipping_city'] = $_POST['billing_city'] ?? '';
+                $_POST['shipping_state'] = $_POST['billing_state'] ?? '';
+                $_POST['shipping_postcode'] = $_POST['billing_postcode'] ?? '';
+                $_POST['shipping_country'] = $_POST['billing_country'] ?? '';
+            } else {
+                $_POST['ship_to_different_address'] = 1; // Ship to different address
+            }
+        }
         
         // Create WooCommerce order using existing checkout process
         $checkout = WC()->checkout();
@@ -435,6 +467,7 @@ function wpppc_card_create_order_after_payment_handler() {
         // Store PayPal transaction details
         update_post_meta($order_id, '_paypal_order_id', $paypal_order_id);
         update_post_meta($order_id, '_paypal_transaction_id', $transaction_id);
+        update_post_meta($order_id, '_wpppc_funding_source', 'paypal advanced card');
         
         // Update status to processing
         $order->update_status('processing');
@@ -1149,7 +1182,7 @@ function wpppc_complete_order_handler() {
                 }
             }
             
-            // CRITICAL: Run the WooCommerce hook that WAPF and other plugins use
+            //Run the WooCommerce hook that WAPF and other plugins use
             // to add their custom data to order line items
             if (!empty($cart_item_data['cart_item'])) {
                 do_action('woocommerce_checkout_create_order_line_item', $item, $cart_item_data['cart_item_key'], $cart_item_data['cart_item'], $order);

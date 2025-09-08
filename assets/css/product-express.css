@@ -32,7 +32,7 @@
     right: 20px;
     top: 10px;
 }
-.wpppc-modern-form input {
+.wpppc-modern-form input:not([type="radio"]) {
     height: 36px;
 }
 .wpppc-modern-form select {

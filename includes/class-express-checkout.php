@@ -142,7 +142,7 @@ class WPPPC_Express_Checkout {
         wp_enqueue_style('wpppc-express-checkout', WPPPC_PLUGIN_URL . 'assets/css/express-checkout.css', array(), WPPPC_VERSION);
         
         // Enqueue custom script for Express Checkout
-        wp_enqueue_script('wpppc-express-checkout', WPPPC_PLUGIN_URL . 'assets/js/express-checkout.js', array('jquery'), WPPPC_VERSION, true);
+        wp_enqueue_script('wpppc-express-checkout', WPPPC_PLUGIN_URL . 'assets/js/express-checkout.js', array('jquery'), time(), true);
         
         // Get server for button URL
         $server_manager = WPPPC_Server_Manager::get_instance();
