@@ -142,7 +142,7 @@ class WPPPC_PayPal_Gateway extends WC_Payment_Gateway {
      * AJAX handler for validating checkout fields
      */
     public function ajax_validate_checkout() {
-        check_ajax_referer('wpppc-nonce', 'nonce');
+        //check_ajax_referer('wpppc-nonce', 'nonce');
         
         $errors = array();
         

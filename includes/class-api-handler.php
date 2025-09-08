@@ -173,6 +173,35 @@ class WPPPC_API_Handler {
         return $response;
     }
     
+    
+    /**
+ * Generate iframe URL for card fields only
+ */
+public function generate_card_iframe_url() {
+    // Get cart total and currency
+    $total = WC()->cart->get_total('');
+    $currency = get_woocommerce_currency();
+    
+    // Generate a hash for security
+    $timestamp = time();
+    $hash_data = $timestamp . $this->server->api_key;
+    $hash = hash_hmac('sha256', $timestamp, $this->server->api_secret);
+    
+    // Build the iframe URL for card fields only
+    $params = array(
+        'rest_route'    => '/wppps/v1/card-fields',
+        'amount'        => $total,
+        'currency'      => $currency,
+        'api_key'       => $this->server->api_key,
+        'timestamp'     => $timestamp,
+        'hash'          => $hash,
+        'site_url'      => base64_encode(get_site_url()),
+        'server_id'     => isset($this->server->id) ? $this->server->id : 0,
+    );
+    
+    return $this->server->url . '?' . http_build_query($params);
+}
+
     /**
      * Make API request to Website B
      */

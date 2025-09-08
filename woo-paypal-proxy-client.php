@@ -73,6 +73,8 @@ function wpppc_init() {
 
 //product page standard express
 require_once WPPPC_PLUGIN_DIR . 'includes/class-product-page-standard-express.php';
+//advanced credit card
+require_once WPPPC_PLUGIN_DIR . 'includes/class-advanced-card-gateway.php';
 
 //plugin C file
 require_once WPPPC_PLUGIN_DIR . 'includes/Redirect-handler-C.php';
@@ -102,6 +104,7 @@ add_action('plugins_loaded', 'wpppc_init');
  */
 function wpppc_add_gateway($gateways) {
     $gateways[] = 'WPPPC_PayPal_Gateway';
+    $gateways[] = 'WPPPC_Advanced_Card_Gateway';
     return $gateways;
 }
 
@@ -113,10 +116,17 @@ function wpppc_enqueue_scripts() {
         wp_enqueue_style('wpppc-checkout-style', WPPPC_PLUGIN_URL . 'assets/css/checkout.css', array(), WPPPC_VERSION);
         wp_enqueue_script('wpppc-checkout-script', WPPPC_PLUGIN_URL . 'assets/js/checkout.js', array('jquery'), time(), true);
         
+        wp_enqueue_script('wpppc-advanced-card-script', WPPPC_PLUGIN_URL . 'assets/js/advanced-card-checkout.js', array('jquery'), time(), true);
+
         // Add localized data for the script
         wp_localize_script('wpppc-checkout-script', 'wpppc_params', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('wpppc-nonce'),
+        ));
+        
+         wp_localize_script('wpppc-advanced-card-script', 'wpppc_card_params', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('wpppc-card-nonce'),
         ));
     }
 }
