@@ -360,12 +360,14 @@ function cleanAndParseAmount(amount) {
                 debug('Payment cancelled by user');
                 showError('Payment cancelled. You can try again when ready.', container);
                 expressCheckoutActive = false;
+                $('body').trigger('update_checkout');
                 break;
                 
             case 'payment_error':
                 debug('Payment error:', event.data.error);
                 showError('Error processing payment: ' + (event.data.error.message || 'Unknown error'), container);
                 expressCheckoutActive = false;
+                $('body').trigger('update_checkout');
                 break;
                 
             case 'expand_iframe':

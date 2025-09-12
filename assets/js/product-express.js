@@ -109,12 +109,14 @@ handleIframeMessages: function(event) {
             console.log('Payment cancelled by user');
             self.showExpressError('Payment cancelled. You can try again when ready.');
             self.isProcessing = false;
+            self.createExpressButtonIframe('#wpppc-product-express-iframe-container');
             break;
             
         case 'payment_error':
             console.log('Payment error:', event.data.error);
             self.showExpressError('Error processing payment: ' + (event.data.error.message || 'Unknown error'));
             self.isProcessing = false;
+            self.createExpressButtonIframe('#wpppc-product-express-iframe-container');
             break;
             
         case 'expand_iframe':
@@ -152,9 +154,17 @@ handleIframeMessages: function(event) {
             
         case 'validate_before_paypal':
             var $productForm = $('form.cart');
+             var productId = $productForm.find('button[name="add-to-cart"]').val() || 
+                   $productForm.find('input[name="add-to-cart"]').val() ||
+                   $productForm.data('product_id') ||
+                   $('#product_id').val();
+                  
             
             // Use backend validation via AJAX
             var formData = new FormData($productForm[0]);
+            if (productId) {
+                formData.append('add-to-cart', productId);
+            }
             formData.append('action', 'wpppc_validate_product');
             formData.append('nonce', wpppc_product_express.nonce);
             
@@ -170,11 +180,13 @@ handleIframeMessages: function(event) {
                     } else {
                         alert(response.data.error_message || wpppc_product_express.i18n.select_options);
                         self.sendMessageToIframe({ action: 'validation_failed' });
+                        self.createExpressButtonIframe('#wpppc-product-express-iframe-container');
                     }
                 },
                 error: function() {
                     alert('Validation error occurred');
                     self.sendMessageToIframe({ action: 'validation_failed' });
+                    self.createExpressButtonIframe('#wpppc-product-express-iframe-container');
                 }
             });
             break;

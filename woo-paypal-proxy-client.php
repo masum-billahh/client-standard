@@ -231,6 +231,10 @@ function wpppc_control_advanced_card_gateway($available_gateways) {
         // Get the server manager and current server
         $server_manager = WPPPC_Server_Manager::get_instance();
         $server = $server_manager->get_selected_server();
+        if (!empty($server->is_personal)) {
+            
+            unset($available_gateways['paypal_advanced_card']);
+        }
         
         // If no server or advanced card is disabled, remove the gateway
         if (!$server || !$server->enable_advanced_card) {

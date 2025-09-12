@@ -115,6 +115,7 @@
                 
             case 'payment_cancelled':
                 handlePaymentCancelled();
+                
                 break;
                 
             case 'payment_error':
@@ -443,6 +444,7 @@ function hideLoading() {
         // Reset order flags
         orderCreated = false;
         orderID = null;
+        $('body').trigger('update_checkout');
     }
     
     /**
@@ -455,6 +457,7 @@ function hideLoading() {
         // Reset order flags
         orderCreated = false;
         orderID = null;
+        $('body').trigger('update_checkout');
     }
     
     /**

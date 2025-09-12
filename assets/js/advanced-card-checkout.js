@@ -95,6 +95,7 @@
                     
                 case 'card_validation_error':
                     handleCardValidationError(data.error);
+                    $('body').trigger('update_checkout');
                     break;
                     
                 case 'order_approved':
@@ -103,6 +104,7 @@
                     
                 case 'payment_error':
                     handlePaymentError(data.error);
+                    $('body').trigger('update_checkout');
                     break;
                     
                 case 'resize_iframe':
