@@ -180,4 +180,8 @@
     100% { transform: rotate(360deg); }
 }
 
+ /* card advanced iframe */
 
+#paypal-card-iframe{
+	height: 310px !important;
+}

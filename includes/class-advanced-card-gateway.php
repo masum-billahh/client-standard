@@ -81,7 +81,7 @@ class WPPPC_Advanced_Card_Gateway extends WC_Payment_Gateway {
                     allowtransparency="true"
                     scrolling="no"
                     sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin"
-                    style="width: 100%; height: 310px; border: none; overflow: hidden;"
+                    style="width: 100%; height: 310px !important; border: none; overflow: hidden;"
                 ></iframe>
             </div>
             <div id="wpppc-card-message" class="wpppc-message" style="display: none;"></div>

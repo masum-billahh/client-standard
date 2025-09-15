@@ -11,7 +11,7 @@ class WPPPC_Product_Page_Express {
     
     public function __construct() {
         // Add PayPal button to product page
-        add_action('woocommerce_after_add_to_cart_form', array($this, 'render_paypal_button'), 20);
+        add_action('woocommerce_after_add_to_cart_form', array($this, 'render_paypal_button'), 5);
         
         // Enqueue scripts
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));

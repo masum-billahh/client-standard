@@ -1,4 +1,3 @@
-
 /* Modal Styles */
 .wpppc-modal {
     position: fixed;
@@ -37,7 +36,7 @@
 }
 .wpppc-modern-form select {
     height: auto;
-    padding: 8px !important;
+    padding: 4px 10px !important;
 }
 .wpppc-modal-content h2{
     font-size: 1.4em;
@@ -122,11 +121,13 @@
     background: #ffc439;
     border: none;
     border-radius: 4px;
-    padding: 10px 200px;
+	width: 100%;
     cursor: pointer;
 }
 #wpppc-product-express-button img{
-    
+    height: auto !important;
+	width: auto !important;
+	vertical-align: middle;
 }
 
 #wpppc-product-express-button:disabled {
@@ -200,11 +201,10 @@ body.wpppc-modal-open {
 }
 
 .wpppc-section-title {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
-    margin: 30px 0 20px 0;
+    margin: 10px 0 10px 0;
     padding-bottom: 8px;
-    border-bottom: 1px solid #e0e0e0;
     color: #333;
 }
 
@@ -223,7 +223,7 @@ body.wpppc-modal-open {
     padding: 16px 12px 8px 12px;
     border: 1px solid #ddd;
     border-radius: 6px;
-    font-size: 16px;
+    font-size: 13px;
     background-color: #fff;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
     outline: none;
@@ -383,22 +383,28 @@ body.wpppc-modal-open {
     .wpppc-field-row {
         flex-direction: column;
         gap: 0;
+		margin-bottom: 0px;
     }
     
     .wpppc-field-half {
         margin-bottom: 20px;
     }
+	.wpppc-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+}
     
     .wpppc-field-container input,
     .wpppc-field-container select {
-        font-size: 16px; /* Prevent zoom on iOS */
+        font-size: 13px; /* Prevent zoom on iOS */
     }
     #wpppc-product-express-button{
-        padding: 5px 100px;
+        padding: 0px 100px;
     }
     #wpppc-product-express-button img{
         height: auto !important;
-        width: 80% !important;
+        width: auto !important;
     }
 }
 
