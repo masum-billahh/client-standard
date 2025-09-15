@@ -137,7 +137,7 @@ public function enqueue_checkout_scripts() {
             'wpppc-checkout-custom', 
             plugin_dir_url(dirname(__FILE__)) . 'assets/js/standard-img-handle.js', 
             array('jquery'), 
-            '1.0.0', 
+            '4.2.0', 
             true
         );
         

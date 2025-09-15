@@ -28,7 +28,7 @@ jQuery(document).ready(function($) {
     });
     
     // Handle PayPal button click
-    $('#wpppc-paypal-btn-img').on('click', function(e) {
+    $('#wpppc-paypal-button').on('click', function(e) {
         e.preventDefault();
         
         // Trigger the original place order button click
@@ -40,21 +40,21 @@ jQuery(document).ready(function($) {
         togglePayPalButton();
         
         // Re-bind click event after checkout update
-        $('#wpppc-paypal-btn-img').off('click').on('click', function(e) {
+        $('#wpppc-paypal-button').off('click').on('click', function(e) {
             e.preventDefault();
             $('#place_order').trigger('click');
         });
     });
     
-    // Optional: Add loading state to PayPal button during checkout process
+    //Add loading state to PayPal button during checkout process
     $(document.body).on('checkout_place_order_paypal_standard_proxy', function() {
-        $('#wpppc-paypal-btn-img').css('opacity', '0.5').css('cursor', 'not-allowed');
+        $('#wpppc-paypal-button').css('opacity', '0.5').css('cursor', 'not-allowed');
         return true; // Allow the checkout to proceed
     });
     
     // Reset button state if checkout fails
     $(document.body).on('checkout_error', function() {
-        $('#wpppc-paypal-btn-img').css('opacity', '1').css('cursor', 'pointer');
+        $('#wpppc-paypal-button').css('opacity', '1').css('cursor', 'pointer');
     });
     
 });

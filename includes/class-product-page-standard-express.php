@@ -229,7 +229,8 @@ public function get_states_by_country() {
                             <?php
                             $countries = WC()->countries->get_allowed_countries();
                             foreach ($countries as $code => $name) {
-                                echo '<option value="' . esc_attr($code) . '">' . esc_html($name) . '</option>';
+                                $selected = ($code === 'US') ? 'selected' : '';
+                                echo '<option value="' . esc_attr($code) . '" ' . $selected . '>' . esc_html($name) . '</option>';
                             }
                             ?>
                         </select>

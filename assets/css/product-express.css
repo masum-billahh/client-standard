@@ -8,17 +8,21 @@
     height: 100%;
     overflow: auto;
     background-color: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; 
+    padding: 40px 0;
 }
 
 .wpppc-modal-content {
     background-color: #fefefe;
-    margin: 2% auto;
     padding: 30px;
     border: 1px solid #888;
     width: 90%;
     max-width: 800px;
     border-radius: 8px;
     position: relative;
+    margin: auto;
 }
 
 .wpppc-modal-close {
@@ -36,7 +40,7 @@
 }
 .wpppc-modern-form select {
     height: auto;
-    padding: 4px 10px !important;
+    padding: 6px 10px !important;
 }
 .wpppc-modal-content h2{
     font-size: 1.4em;
@@ -169,6 +173,7 @@ body.wpppc-modal-open {
 }
 
 .shipping-methods label {
+    font-size: 12px;
     display: block;
     cursor: pointer;
     margin: 0;
@@ -183,6 +188,9 @@ body.wpppc-modal-open {
 }
 /* Responsive */
 @media (max-width: 768px) {
+    .wpppc-modal{
+        padding:0px;
+    }
     .wpppc-form-row {
         flex-direction: column;
     }
@@ -203,13 +211,13 @@ body.wpppc-modal-open {
 .wpppc-section-title {
     font-size: 16px;
     font-weight: 600;
-    margin: 10px 0 10px 0;
+    margin: 0px;
     padding-bottom: 8px;
     color: #333;
 }
 
 .wpppc-section-title:first-of-type {
-    margin-top: 20px;
+    margin-top: 0px;
 }
 
 .wpppc-field-container {
@@ -227,6 +235,7 @@ body.wpppc-modal-open {
     background-color: #fff;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
     outline: none;
+    margin: 0px;
 }
 
 .wpppc-field-container input:focus,
@@ -336,8 +345,6 @@ body.wpppc-modal-open {
 }
 
 .shipping-methods li {
-    margin-bottom: 12px;
-    padding: 15px;
     border: 1px solid #ddd;
     border-radius: 6px;
     transition: border-color 0.3s ease, background-color 0.3s ease;
@@ -354,11 +361,11 @@ body.wpppc-modal-open {
 }
 
 .shipping-methods label {
+    font-size: 13px;
     display: flex;
     align-items: center;
     cursor: pointer;
     margin: 0;
-    font-size: 15px;
 }
 
 .shipping-methods input[type="radio"] {
@@ -397,7 +404,7 @@ body.wpppc-modal-open {
     
     .wpppc-field-container input,
     .wpppc-field-container select {
-        font-size: 13px; /* Prevent zoom on iOS */
+        font-size: 12px; /* Prevent zoom on iOS */
     }
     #wpppc-product-express-button{
         padding: 0px 100px;
@@ -427,6 +434,7 @@ body.wpppc-modal-open {
 /* Smooth transitions for field type changes */
 .wpppc-field-container {
     transition: opacity 0.3s ease;
+    margin-bottom: 15px;
 }
 
 .wpppc-field-container.changing {

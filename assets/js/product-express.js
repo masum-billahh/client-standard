@@ -140,9 +140,6 @@ handleIframeMessages: function(event) {
             }
             // Restore padding
             var container = document.querySelector('#wpppc-product-express-iframe-container');
-            if (container) {
-                container.style.padding = "30px";
-            }
             break;
             
         case 'resize_iframe':
@@ -440,12 +437,13 @@ createExpressOrderFromCart: function() {
             // Form submission
             $('#wpppc-express-form').on('submit', this.handleFormSubmit.bind(this));
             
-            // Close modal on outside click
+            /* Close modal on outside click
             $(window).on('click', function(e) {
                 if ($(e.target).hasClass('wpppc-modal')) {
                     productExpress.closeModal();
                 }
             });
+            */
             
             // Prevent form submission when our button is processing
             $('form.cart').on('submit', function(e) {
@@ -558,10 +556,16 @@ continueExpressCheckout: function() {
 },
         
         initCountrySelect: function() {
+            var self = this; 
             // Initialize Select2 for country dropdowns if available
             if ($.fn.select2) {
                 $('#billing_country, #shipping_country').select2();
                 $('#billing_state, #shipping_state').select2();
+            }
+            if ($('#billing_country').val()) {
+                var $country = $('#billing_country').val();
+                var $stateSelect = $('#billing_state');
+                self.loadStatesForCountry($country, $stateSelect);
             }
         },
         
@@ -846,7 +850,7 @@ hideStateField: function($container) {
    //console.log('Address data:', {country, state, postcode, city, useShippingAddress});
     
     // Check if we have minimum required fields
-    if (!country || !postcode) {
+    if (!country) {
         //console.log('Missing required fields for shipping calculation');
         return;
     }
@@ -1223,7 +1227,7 @@ hideStateField: function($container) {
             var billingCountry = $('#billing_country').val();
             var billingPostcode = $('#billing_postcode').val();
             
-            if (billingCountry && billingPostcode) {
+            if (billingCountry) {
                 //console.log('Pre-populated address found, calculating shipping...');
                 self.calculateShipping();
             }
