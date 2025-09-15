@@ -526,22 +526,22 @@ public function is_real_mobile_device() {
     return false;
 }
 
-/**
- * Check if this gateway is available for the current request
- */
-public function is_available() {
-    $is_available = parent::is_available();
-    
-    // If it's not available for other reasons, return false
-    if (!$is_available) {
-        return false;
+    /**
+     * Check if this gateway is available for the current request
+     */
+    public function is_available() {
+        $is_available = parent::is_available();
+        
+        // If it's not available for other reasons, return false
+        if (!$is_available) {
+            return false;
+        }
+        
+        // If mobile_only is enabled, check if it's a mobile device
+        if ($this->get_option('mobile_only') === 'yes') {
+            return $this->is_real_mobile_device();
+        }
+        
+        return true;
     }
-    
-    // If mobile_only is enabled, check if it's a mobile device
-    if ($this->get_option('mobile_only') === 'yes') {
-        return $this->is_real_mobile_device();
-    }
-    
-    return true;
-}
 }

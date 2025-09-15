@@ -232,13 +232,25 @@ function wpppc_control_advanced_card_gateway($available_gateways) {
         $server_manager = WPPPC_Server_Manager::get_instance();
         $server = $server_manager->get_selected_server();
         if (!empty($server->is_personal)) {
-            
             unset($available_gateways['paypal_advanced_card']);
         }
         
         // If no server or advanced card is disabled, remove the gateway
         if (!$server || !$server->enable_advanced_card) {
             unset($available_gateways['paypal_advanced_card']);
+        }
+        
+        $gateways = WC()->payment_gateways()->payment_gateways();
+
+        if (isset($gateways['paypal_proxy'])) {
+            $proxy_gateway = $gateways['paypal_proxy'];
+
+            if ($proxy_gateway->get_option('mobile_only') === 'yes' && 
+                method_exists($proxy_gateway, 'is_real_mobile_device') && 
+                !$proxy_gateway->is_real_mobile_device()
+            ) {
+                unset($available_gateways['paypal_advanced_card']);
+            }
         }
     }
     

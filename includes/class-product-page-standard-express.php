@@ -32,14 +32,14 @@ class WPPPC_Product_Page_Express {
         add_action('wp_ajax_nopriv_wpppc_update_totals_only', array($this, 'update_totals_only'));
         
         // AJAX handler for getting states by country
-    add_action('wp_ajax_wpppc_get_states', array($this, 'get_states_by_country'));
-    add_action('wp_ajax_nopriv_wpppc_get_states', array($this, 'get_states_by_country'));
+        add_action('wp_ajax_wpppc_get_states', array($this, 'get_states_by_country'));
+        add_action('wp_ajax_nopriv_wpppc_get_states', array($this, 'get_states_by_country'));
     
-    // AJAX handler for getting cart totals
-add_action('wp_ajax_wpppc_get_cart_totals', array($this, 'get_cart_totals'));
-add_action('wp_ajax_nopriv_wpppc_get_cart_totals', array($this, 'get_cart_totals'));
-add_action('wp_ajax_wpppc_validate_product', array($this, 'validate_product'));
-add_action('wp_ajax_nopriv_wpppc_validate_product', array($this, 'validate_product'));
+        // AJAX handler for getting cart totals
+        add_action('wp_ajax_wpppc_get_cart_totals', array($this, 'get_cart_totals'));
+        add_action('wp_ajax_nopriv_wpppc_get_cart_totals', array($this, 'get_cart_totals'));
+        add_action('wp_ajax_wpppc_validate_product', array($this, 'validate_product'));
+        add_action('wp_ajax_nopriv_wpppc_validate_product', array($this, 'validate_product'));
     }
     
     public function update_totals_only() {
@@ -157,14 +157,35 @@ public function get_states_by_country() {
         return;
     }
     
-    // Show for Personal mode with Express enabled OR Business mode
+    $payment_gateways = WC()->payment_gateways()->payment_gateways();
     $show_button = false;
-    if (!empty($server->is_personal) && !empty($server->personal_express)) {
-        $show_button = true; // Personal mode
-    } elseif (empty($server->is_personal)) {
-        $show_button = true; // Business mode
+
+    // First check if gateway exists and is enabled
+    if (isset($payment_gateways['paypal_proxy'])) {
+        $gateway = $payment_gateways['paypal_proxy'];
+        
+        // Check if gateway is enabled
+        if ($gateway->enabled !== 'yes') {
+            return;
+        }
+        
+        // Check mobile restrictions
+        if ($gateway->get_option('mobile_only') === 'yes' && 
+            method_exists($gateway, 'is_real_mobile_device') &&
+            !$gateway->is_real_mobile_device()) {
+            return; // Exit early if mobile required but not on mobile
+        }
+        
+        //check server mode
+        if (!empty($server->is_personal) && !empty($server->personal_express)) {
+            $show_button = true; // Personal mode
+        } elseif (empty($server->is_personal) && !empty($server->personal_express)) {
+            $show_button = true; // Business mode
+        } else {
+            $show_button = false;
+        }
     }
-    
+        
     if (!$show_button) {
         return;
     }
@@ -174,7 +195,7 @@ public function get_states_by_country() {
     
     ?>
 <div id="wpppc-product-express-container" style="margin-top: 20px;">
-    <?php if ($is_business_mode): ?>
+    <?php if ($is_business_mode && $show_button): ?>
         <!-- Business Mode: Express Checkout Iframe -->
         <div id="wpppc-product-express-iframe-container" class="wpppc-express-paypal-button"></div>
     <?php else: ?>
