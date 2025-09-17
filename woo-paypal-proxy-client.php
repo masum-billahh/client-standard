@@ -112,29 +112,6 @@ function wpppc_add_gateway($gateways) {
  * Enqueue scripts and styles
  */
 function wpppc_enqueue_scripts() {
-    
-   $google_api_key = 'AIzaSyDmfHyN6t4BElCQDYzeZZU1oHUUPMhVFCo'; 
-   /*
-    
-    if (is_checkout() || is_product()) {
-        wp_enqueue_script(
-            'google-maps-places',
-            'https://maps.googleapis.com/maps/api/js?key=' . $google_api_key . '&libraries=places&loading=async',
-            array(),
-            null,
-            true
-        );
-        
-        wp_enqueue_script(
-            'wpppc-google-autocomplete',
-            WPPPC_PLUGIN_URL . 'assets/js/google-autocomplete.js',
-            array('jquery'),
-            time(),
-            true
-        );
-    }
-    */
-    
     if (is_checkout()) {
         wp_enqueue_style('wpppc-checkout-style', WPPPC_PLUGIN_URL . 'assets/css/checkout.css', array(), WPPPC_VERSION);
         wp_enqueue_script('wpppc-checkout-script', WPPPC_PLUGIN_URL . 'assets/js/checkout.js', array('jquery'), time(), true);

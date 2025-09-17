@@ -14,6 +14,7 @@ jQuery(document).ready(function($) {
             this.initShippingCalculation();
             this.initFloatingLabels();
             this.originalButtonHtml = $('#wpppc-product-express-button').html();
+            this.modalAutocompleteInitialized = false;
             this.isProcessing = false; 
             const style = document.createElement('style');
             style.innerHTML = `
@@ -650,11 +651,6 @@ loadStatesForCountry: function(country, $stateSelect) {
     // Show loading state
     $stateSelect.empty().append('<option value="">Loading...</option>');
     
-    // Debug: Log the request
-    console.log('Loading states for country:', country);
-    console.log('AJAX URL:', wpppc_product_express.ajax_url);
-    console.log('Nonce:', wpppc_product_express.nonce);
-    
     // Make AJAX call to get states and field type info
     $.ajax({
         url: wpppc_product_express.ajax_url,
@@ -700,10 +696,14 @@ loadStatesForCountry: function(country, $stateSelect) {
                         break;
                 }
                 
+                // Trigger custom event when states are loaded
+                $(document).trigger('statesLoaded', [country, fieldType, states]);
+                
                 // Trigger shipping calculation after state field is updated
                 setTimeout(function() {
                     self.calculateShipping();
                 }, 100);
+                
                 
             } else {
                 console.error('AJAX Error Response:', response);
@@ -1223,6 +1223,11 @@ hideStateField: function($container) {
         
         // Add a small delay to ensure cart is populated, then calculate shipping
         setTimeout(function() {
+            if (!self.modalAutocompleteInitialized) {
+                $(document).trigger('modalShown');
+                self.modalAutocompleteInitialized = true;
+            }
+            
             // Check if we have pre-populated address data
             var billingCountry = $('#billing_country').val();
             var billingPostcode = $('#billing_postcode').val();
@@ -1238,6 +1243,9 @@ hideStateField: function($container) {
             $('#wpppc-express-modal').fadeOut();
             $('body').removeClass('wpppc-modal-open');
             $('.wpppc-form-errors').hide().empty();
+            this.modalAutocompleteInitialized = false;
+            // Remove any autocomplete elements
+            $('#billing_address_1').show().siblings('gmp-place-autocomplete').remove();
         },
         
         toggleShippingFields: function() {
