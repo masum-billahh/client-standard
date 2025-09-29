@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce PayPal Proxy Client
  * Plugin URI: https://www.upwork.com/freelancers/~01a6e65817b86d4589
  * Description: Connects to multiple PayPal proxy servers with load balancing
- * Version: 4.1.0
+ * Version: 4.4.0
  * Author: Masum Billah
  * Author URI: https://www.upwork.com/freelancers/~01a6e65817b86d4589
  * Text Domain: woo-paypal-proxy-client
@@ -22,7 +22,7 @@ add_action('plugins_loaded', 'wpppc_check_decimal_schema', 5); // Run before mai
 // Define plugin constants
 define('WPPPC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WPPPC_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('WPPPC_VERSION', '4.1.0');
+define('WPPPC_VERSION', '4.4.0');
 
 /**
  * Check if WooCommerce is active

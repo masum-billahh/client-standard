@@ -225,21 +225,7 @@ public function get_states_by_country() {
 
                     <!-- Shipping Address Section -->
                     <h3 class="wpppc-section-title"><?php _e('Shipping address', 'woo-paypal-proxy-client'); ?></h3>
-                    
-                    <!-- Country -->
-                    <div class="wpppc-field-container wpppc-select-container">
-                        <select id="billing_country" name="billing_country" required>
-                            <option value=""><?php _e('Select Country', 'woo-paypal-proxy-client'); ?></option>
-                            <?php
-                            $countries = WC()->countries->get_allowed_countries();
-                            foreach ($countries as $code => $name) {
-                                $selected = ($code === 'US') ? 'selected' : '';
-                                echo '<option value="' . esc_attr($code) . '" ' . $selected . '>' . esc_html($name) . '</option>';
-                            }
-                            ?>
-                        </select>
-                        <label for="billing_country"><?php _e('Country/Region', 'woo-paypal-proxy-client'); ?></label>
-                    </div>
+                   
 
                     <!-- First Name, Last Name -->
                     <div class="wpppc-field-row">
@@ -258,6 +244,7 @@ public function get_states_by_country() {
                         <input type="text" id="billing_address_1" name="billing_address_1" required>
                         <label for="billing_address_1"><?php _e('Address', 'woo-paypal-proxy-client'); ?></label>
                     </div>
+                    
 
                     <!-- Add Address Line Toggle -->
                     <div class="wpppc-add-address-toggle">
@@ -269,6 +256,22 @@ public function get_states_by_country() {
                     <div class="wpppc-field-container wpppc-address-line-2" style="display: none;">
                         <input type="text" id="billing_address_2" name="billing_address_2">
                         <label for="billing_address_2"><?php _e('Apartment, suite, etc.', 'woo-paypal-proxy-client'); ?></label>
+                    </div>
+                    
+                     
+                    <!-- Country -->
+                    <div class="wpppc-field-container wpppc-select-container">
+                        <select id="billing_country" name="billing_country" required>
+                            <option value=""><?php _e('Select Country', 'woo-paypal-proxy-client'); ?></option>
+                            <?php
+                            $countries = WC()->countries->get_allowed_countries();
+                            foreach ($countries as $code => $name) {
+                                $selected = ($code === 'US') ? 'selected' : '';
+                                echo '<option value="' . esc_attr($code) . '" ' . $selected . '>' . esc_html($name) . '</option>';
+                            }
+                            ?>
+                        </select>
+                        <label for="billing_country"><?php _e('Country/Region', 'woo-paypal-proxy-client'); ?></label>
                     </div>
 
                     <!-- City, State -->

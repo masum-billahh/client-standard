@@ -467,7 +467,7 @@ createExpressOrderFromCart: function() {
     }
     
     console.log('Business mode PayPal button clicked, adding to cart first...');
-    
+    /*
     // For variable products, check if variation is selected
     if (wpppc_product_express.is_variable) {
         var $form = $('form.variations_form');
@@ -483,6 +483,7 @@ createExpressOrderFromCart: function() {
     if (!this.validateInputFieldsOnly($productForm)) {
         return;
     }
+    */
     
     this.isProcessing = true;
     
@@ -964,6 +965,7 @@ hideStateField: function($container) {
                 return false;
             });
             
+            /*
             // For variable products, check if variation is selected
             if (wpppc_product_express.is_variable) {
                 var $form = $('form.variations_form');
@@ -979,6 +981,7 @@ hideStateField: function($container) {
             if (!this.validateInputFieldsOnly($productForm)) {
                 return;
             }
+            */
             
             // Set processing flag
             this.isProcessing = true;

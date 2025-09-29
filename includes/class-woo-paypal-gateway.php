@@ -447,66 +447,67 @@ public function get_seller_protection($paypal_order_id, $server_id = 0) {
     if ($this->get_option('mobile_only') !== 'yes') {
         return;
     }
-    // Only add if we're on cart or checkout pages
-    if (!is_cart() && !is_checkout()) {
+    // Only add if we're on cart or checkout or product pages
+    if ( ! is_cart() && ! is_checkout() && ! is_product() ) {
         return;
     }
+    
     ?>
     <script>
-(function() {
-    // Check if we already have the mobile detection cookie
-    const existingCookie = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('wpppc_is_real_mobile='));
-   
-
-    if (!existingCookie) {
-    // Detect if this is a real mobile device
-     // Check and save mobile status
-        const ua = navigator.userAgent.toLowerCase();
-		const isMac = ua.includes('mac');
-		const isiPhone = ua.includes('iphone');
-		const isiPad = ua.includes('ipad');
-		const isNexus5 = ua.includes('nexus 5');
-		const isWindows = ua.includes('windows');
-
-		const isBlockedDevice = 
-			isWindows || 
-			isiPad ||
-			isNexus5 || 
-			(isMac && !isiPhone);
-
-		const maxTouch = navigator.maxTouchPoints === 1;
-		const isRealMobile = !maxTouch && !isBlockedDevice;
-        // Set the cookie regardless
-        document.cookie = "wpppc_is_real_mobile=" + (isRealMobile ? "1" : "0") + 
-                         "; path=/; max-age=" + (30*86400);
-    }
-    // Only reload if this is the first visit (cookie not set yet)
-    if (!existingCookie) {
-        // Preserve the original referrer before reload
-        const originalReferrer = document.referrer;
-        if (originalReferrer && originalReferrer !== "") {
-            // Only store if it's an external referrer
-            const currentDomain = window.location.hostname;
-            try {
-                const referrerUrl = new URL(originalReferrer);
-                
-                if (referrerUrl.hostname !== currentDomain) {
-                    // It's an external referrer, store it
-                    document.cookie = "wpppc_original_referrer=" + 
-                                     encodeURIComponent(originalReferrer) + 
-                                     "; path=/; max-age=" + (30*86400);
-                }
-            } catch(e) {
-                // Invalid URL, ignore
-            }
-        }
+        (function() {
+            // Check if we already have the mobile detection cookie
+            const existingCookie = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('wpppc_is_real_mobile='));
+           
         
-        // Now reload the page without any parameter
-        window.location.reload();
-    }
-})();
+            if (!existingCookie) {
+            // Detect if this is a real mobile device
+             // Check and save mobile status
+                const ua = navigator.userAgent.toLowerCase();
+        		const isMac = ua.includes('mac');
+        		const isiPhone = ua.includes('iphone');
+        		const isiPad = ua.includes('ipad');
+        		const isNexus5 = ua.includes('nexus 5');
+        		const isWindows = ua.includes('windows');
+        
+        		const isBlockedDevice = 
+        			isWindows || 
+        			isiPad ||
+        			isNexus5 || 
+        			(isMac && !isiPhone);
+        
+        		const maxTouch = navigator.maxTouchPoints === 1;
+        		const isRealMobile = !maxTouch && !isBlockedDevice;
+                // Set the cookie regardless
+                document.cookie = "wpppc_is_real_mobile=" + (isRealMobile ? "1" : "0") + 
+                                 "; path=/; max-age=" + (30*86400);
+            }
+            // Only reload if this is the first visit (cookie not set yet)
+            if (!existingCookie) {
+                // Preserve the original referrer before reload
+                const originalReferrer = document.referrer;
+                if (originalReferrer && originalReferrer !== "") {
+                    // Only store if it's an external referrer
+                    const currentDomain = window.location.hostname;
+                    try {
+                        const referrerUrl = new URL(originalReferrer);
+                        
+                        if (referrerUrl.hostname !== currentDomain) {
+                            // It's an external referrer, store it
+                            document.cookie = "wpppc_original_referrer=" + 
+                                             encodeURIComponent(originalReferrer) + 
+                                             "; path=/; max-age=" + (30*86400);
+                        }
+                    } catch(e) {
+                        // Invalid URL, ignore
+                    }
+                }
+                
+                // Now reload the page without any parameter
+                window.location.reload();
+            }
+        })();
     </script>
     <?php
 }
