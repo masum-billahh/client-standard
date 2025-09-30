@@ -12,7 +12,7 @@ class WPPPC_Product_Page_Express {
     
     public function __construct() {
         
-        $this->map_api_key = 'AIzaSyA2fy6-GSuyzH5sZcYZ8AFjtwiqv1ok_Ao';
+        $this->map_api_key = get_option('wpppc_google_maps_api_key', '');
         // Add PayPal button to product page
         add_action('woocommerce_after_add_to_cart_form', array($this, 'render_paypal_button'), 5);
         //add_action('wp_footer', array($this, 'add_modal_autocomplete_script'));
@@ -78,6 +78,7 @@ class WPPPC_Product_Page_Express {
         
         wp_send_json_success(array('totals' => $totals));
     }
+    
     
   
 

@@ -41,6 +41,7 @@ class WPPPC_Server_Manager {
         
         // Add admin menu - Use a higher priority to ensure it only runs once
         add_action('admin_menu', array($this, 'add_admin_menu'), 30);
+        add_action('admin_init', array($this, 'register_settings'));
         
         // Ajax handlers
         add_action('wp_ajax_wpppc_add_server', array($this, 'ajax_add_server'));
@@ -63,6 +64,14 @@ class WPPPC_Server_Manager {
             array($this, 'render_servers_page'),
             5
         );
+    }
+    
+    public function register_settings() {
+        register_setting('wpppc_settings_group', 'wpppc_google_maps_api_key', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+            'default' => ''
+        ));
     }
     
     /**
@@ -109,6 +118,33 @@ class WPPPC_Server_Manager {
             <h1 class="wp-heading-inline"><?php _e('PayPal Proxy Servers', 'woo-paypal-proxy-client'); ?></h1>
             <a href="#" class="page-title-action add-server"><?php _e('Add New Server', 'woo-paypal-proxy-client'); ?></a>
             <hr class="wp-header-end">
+            
+             <!-- Add map api Form -->
+                <form method="post" action="options.php">
+                    <?php
+                    settings_fields('wpppc_settings_group');
+                    ?>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <label for="wpppc_google_maps_api_key">
+                                    <?php _e('Google Autocomplete API Key', 'woo-paypal-proxy-client'); ?>
+                                </label>
+                            </th>
+                            <td>
+                                <input type="text" 
+                                       id="wpppc_google_maps_api_key" 
+                                       name="wpppc_google_maps_api_key" 
+                                       value="<?php echo esc_attr(get_option('wpppc_google_maps_api_key', '')); ?>" 
+                                       class="regular-text">
+                                <p class="description">
+                                    <?php _e('Enter your Google Autocomplete API key.', 'woo-paypal-proxy-client'); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                    <?php submit_button(__('Save Settings', 'woo-paypal-proxy-client')); ?>
+                </form>
             
             <div class="notice notice-info inline">
                 <p><?php _e('Configure multiple proxy servers with capacity limits. The system will automatically switch to the next available server when a capacity limit is reached.', 'woo-paypal-proxy-client'); ?></p>
