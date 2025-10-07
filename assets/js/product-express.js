@@ -1223,6 +1223,8 @@ hideStateField: function($container) {
         var self = this;
         $('#wpppc-express-modal').show();
         $('body').addClass('wpppc-modal-open');
+		$('#wpppc-express-modal').show();
+		$('#page-header').hide();
         
         // Add a small delay to ensure cart is populated, then calculate shipping
         setTimeout(function() {
@@ -1249,6 +1251,7 @@ hideStateField: function($container) {
             this.modalAutocompleteInitialized = false;
             // Remove any autocomplete elements
             $('#billing_address_1').show().siblings('gmp-place-autocomplete').remove();
+			$('#page-header').show();
         },
         
         toggleShippingFields: function() {

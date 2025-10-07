@@ -1,7 +1,11 @@
 /* Modal Styles */
+header, #page-heade, .header-pinned .page-header-inner{
+    z-index: 999 !important;
+}
+  
 .wpppc-modal {
     position: fixed;
-    z-index: 1050;
+    z-index: 99999999999999999;
     left: 0;
     top: 0;
     width: 100%;

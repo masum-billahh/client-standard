@@ -37,9 +37,10 @@
             // Store reference to current autocomplete
             currentAutocomplete = autocomplete;
             
-            setTimeout(function() {
-                autocomplete.focus();
-            }, 10);
+            inputElement.addEventListener('click', function() {
+				setTimeout(() => autocomplete.focus(), 10);
+			});
+
     
             // If input already has a value, set it back after autocomplete removed
             if (inputElement.value) {
@@ -82,12 +83,14 @@
             });
 
             // Handle blur event on autocomplete
-            autocomplete.addEventListener('blur', function() {
-                // Small delay to allow for potential selection
-                setTimeout(function() {
-                    removeAutocompleteShowInput();
-                }, 150);
-            });
+            const shouldShow = window.innerWidth <= 768;
+            const keyboardOpen = window.innerHeight < screen.height * 0.75;
+        
+            if (!shouldShow && !keyboardOpen) {
+                autocomplete.addEventListener('blur', function() {
+                    setTimeout(removeAutocompleteShowInput, 150);
+                });
+            }
         }
 
         function removeAutocompleteShowInput() {

@@ -40,7 +40,7 @@ class WPPPC_PayPal_Gateway extends WC_Payment_Gateway {
         
         // Initialize API handler (will use server manager to get the next available server)
         $this->api_handler = new WPPPC_API_Handler();
-        add_action('wp_head', array($this, 'add_mobile_detection_script'), 1);
+        add_action('wp_head', array($this, 'add_mobile_detection_script'), 10);
         
         // Hooks
         add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
