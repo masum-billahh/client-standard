@@ -621,7 +621,6 @@ public function validate_product() {
         wp_send_json_error(array('error_message' => 'Security check failed'));
     }
     
-    // Clear any existing notices first
     wc_clear_notices();
     
     $product_id = isset($_POST['add-to-cart']) ? absint($_POST['add-to-cart']) : 0;
@@ -639,11 +638,43 @@ public function validate_product() {
         wp_send_json_error(array('error_message' => 'No product specified'));
     }
     
-    $product = wc_get_product($variation_id ? $variation_id : $product_id);
-    if (!$product || !$product->is_purchasable()) {
-        wp_send_json_error(array('error_message' => 'Product not available'));
+    $parent_product = wc_get_product($product_id);
+    if (!$parent_product) {
+        wp_send_json_error(array('error_message' => 'Product not found'));
     }
     
+    if ($parent_product->is_type('variable')) {
+        if (empty($variation_id) || $variation_id === 0) {
+            wp_send_json_error(array('error_message' => 'Please select product options before adding to cart'));
+        }
+        
+        $variation_product = wc_get_product($variation_id);
+        if (!$variation_product || !$variation_product->is_type('variation')) {
+            wp_send_json_error(array('error_message' => 'Invalid product variation'));
+        }
+        
+        if ($variation_product->get_parent_id() !== $product_id) {
+            wp_send_json_error(array('error_message' => 'Invalid product variation'));
+        }
+        
+        $product = $variation_product;
+    } else {
+        $product = $parent_product;
+    }
+    
+    if (!$product->is_purchasable()) {
+        wp_send_json_error(array('error_message' => 'Product not available for purchase'));
+    }
+    
+    if (!$product->is_in_stock()) {
+        wp_send_json_error(array('error_message' => 'Product is out of stock'));
+    }
+    
+    if ($product->managing_stock() && !$product->has_enough_stock($quantity)) {
+        wp_send_json_error(array('error_message' => sprintf('Not enough stock. Only %d available', $product->get_stock_quantity())));
+    }
+    
+    // Run WooCommerce validation filters
     $_REQUEST = $_POST;
     $cart_item_data = array();
     $passed_validation = apply_filters('woocommerce_add_to_cart_validation', true, $product_id, $quantity, $variation_id, $variation, $cart_item_data);
@@ -665,7 +696,7 @@ public function validate_product() {
     }
     
     wp_send_json_success();
-} 
+}
     
 /**
  * Fallback add-to-cart handler
