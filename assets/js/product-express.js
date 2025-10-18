@@ -88,7 +88,23 @@ handleIframeMessages: function(event) {
     // Handle different actions
     switch (event.data.action) {
         case 'button_loaded':
-            console.log('PayPal Express button loaded');
+            const addToCartBtn = document.querySelector('.single_add_to_cart_button');
+
+            // Watch for variation/disabled state
+            const observer = new MutationObserver(() => {
+                if (addToCartBtn.classList.contains('disabled')) {
+                    self.sendMessageToIframe({
+                        action: 'disable_paypal_button',
+                        message: 'disable_paypal_button'
+                    });
+                } else {
+                     self.sendMessageToIframe({
+                        action: 'enable_paypal_button',
+                        message: 'enable_paypal_button'
+                    });
+                }
+            });
+            observer.observe(addToCartBtn, { attributes: true, attributeFilter: ['class'] });
             break;
             
         case 'button_clicked':
@@ -176,9 +192,10 @@ handleIframeMessages: function(event) {
                     if (response.success) {
                         self.sendMessageToIframe({ action: 'validation_passed' });
                     } else {
-                        alert(response.data.error_message || wpppc_product_express.i18n.select_options);
+                        
                         self.sendMessageToIframe({ action: 'validation_failed' });
                         self.createExpressButtonIframe('#wpppc-product-express-iframe-container');
+                        alert(response.data.error_message || wpppc_product_express.i18n.select_options);
                     }
                 },
                 error: function() {

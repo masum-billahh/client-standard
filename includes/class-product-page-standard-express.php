@@ -467,7 +467,7 @@ public function calculate_shipping_methods() {
             'wpppc-product-express',
             WPPPC_PLUGIN_URL . 'assets/js/product-express.js',
             array('jquery', 'wc-checkout', 'wc-add-to-cart', 'wc-cart-fragments'),
-            '4.2',
+            time(),
             true
         );
         
@@ -702,14 +702,12 @@ public function validate_product() {
  * Fallback add-to-cart handler
  */
 public function add_to_cart_fallback() {
-    //error_log('=== WPPPC DEBUG: add_to_cart_fallback START ===');
-    
+
     // Verify nonce if provided
     if (isset($_POST['nonce']) && !wp_verify_nonce($_POST['nonce'], 'wpppc-product-express')) {
         wp_send_json_error(array('error_message' => 'Security check failed'));
     }
     
-    // COMPLETELY clear cart first - this removes any products that might have been added by WC's native handler
     WC()->cart->empty_cart();
     
     // Also clear session data to ensure clean slate
@@ -720,15 +718,12 @@ public function add_to_cart_fallback() {
         WC()->session->set('coupon_discount_tax_totals', array());
     }
     
-   // error_log('WPPPC DEBUG: Cart completely cleared');
-    
     $product_id = isset($_POST['add-to-cart']) ? absint($_POST['add-to-cart']) : 0;
     $quantity = isset($_POST['quantity']) ? wc_stock_amount($_POST['quantity']) : 1;
     $variation_id = isset($_POST['variation_id']) ? absint($_POST['variation_id']) : 0;
     $variation = array();
     
-    //error_log('WPPPC DEBUG: Product ID: ' . $product_id . ', Quantity: ' . $quantity . ', Variation ID: ' . $variation_id);
-    
+
     // Extract variation attributes
     foreach ($_POST as $key => $value) {
         if (strpos($key, 'attribute_') === 0) {
@@ -743,8 +738,7 @@ public function add_to_cart_fallback() {
             $tm_data[$key] = $value;
         }
     }
-    //error_log('WPPPC DEBUG: TM Extra Product Options data in POST: ' . print_r($tm_data, true));
-    
+
     if (!$product_id) {
         wp_send_json_error(array('error_message' => 'No product specified'));
     }
@@ -759,7 +753,6 @@ public function add_to_cart_fallback() {
     $_REQUEST = $_POST;
     
     // Fire validation hook
-    //error_log('WPPPC DEBUG: About to fire woocommerce_add_to_cart_validation filter');
     $cart_item_data = array(); // Initialize this variable
     $passed_validation = apply_filters('woocommerce_add_to_cart_validation', true, $product_id, $quantity, $variation_id, $variation, $cart_item_data);
     //error_log('WPPPC DEBUG: Validation result: ' . ($passed_validation ? 'PASSED' : 'FAILED'));
@@ -770,13 +763,9 @@ public function add_to_cart_fallback() {
     
     // Build cart item data - let plugins add their data
     $cart_item_data = array();
-    //error_log('WPPPC DEBUG: Initial cart_item_data: ' . print_r($cart_item_data, true));
-    
-    //error_log('WPPPC DEBUG: About to fire woocommerce_add_cart_item_data filter');
+
     $cart_item_data = apply_filters('woocommerce_add_cart_item_data', $cart_item_data, $product_id, $variation_id, $quantity);
-    //error_log('WPPPC DEBUG: cart_item_data after woocommerce_add_cart_item_data filter: ' . print_r($cart_item_data, true));
-    
-    // Log cart contents before add_to_cart
+
     //error_log('WPPPC DEBUG: Cart contents BEFORE add_to_cart: ' . print_r(WC()->cart->get_cart_contents(), true));
     
     // Add to cart
@@ -785,7 +774,7 @@ public function add_to_cart_fallback() {
     //error_log('WPPPC DEBUG: add_to_cart returned cart_item_key: ' . $cart_item_key);
     
     if ($cart_item_key) {
-        // CRITICAL FIX: Check for and remove duplicates in tm EPO data
+        // Check for and remove duplicates in tm EPO data
         if (isset(WC()->cart->cart_contents[$cart_item_key]['tmcartepo']) && 
             is_array(WC()->cart->cart_contents[$cart_item_key]['tmcartepo'])) {
             
