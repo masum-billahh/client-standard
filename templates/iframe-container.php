@@ -43,13 +43,13 @@ jQuery(function ($) {
         } 
     });
 
-    // Fallback: if not loaded in 1 seconds
+    // Fallback: if not loaded in 5 seconds
     setTimeout(function () {
         if (!iframe[0].contentWindow || iframe[0].contentWindow.length === 0) {
             console.log('Iframe failed or blocked.');
             iframe.css('height', '50px'); 
             $('<div style="color:red; padding-top:10px; text-align:center;">Sorry, something went wrong. Please refresh the page or contact the site owner.</div>').insertAfter(iframe);
         }
-    }, 3000);
+    }, 5000);
 });
 </script>

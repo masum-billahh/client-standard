@@ -39,7 +39,7 @@ class WPPPC_Server_Manager {
         global $wpdb;
         $this->table_name = $wpdb->prefix . 'wpppc_proxy_servers';
         
-        // Add admin menu - Use a higher priority to ensure it only runs once
+        // Add admin menu
         add_action('admin_menu', array($this, 'add_admin_menu'), 30);
         add_action('admin_init', array($this, 'register_settings'));
         
@@ -98,6 +98,7 @@ class WPPPC_Server_Manager {
             accepts_credit_card tinyint(1) NOT NULL DEFAULT 0,
             is_personal tinyint(1) NOT NULL DEFAULT 1,
             personal_express tinyint(1) NOT NULL DEFAULT 1,
+			checkout_express tinyint(1) NOT NULL DEFAULT 1,
             enable_advanced_card tinyint(1) NOT NULL DEFAULT 0,
             PRIMARY KEY (id)
         ) $charset_collate;";
@@ -164,6 +165,7 @@ class WPPPC_Server_Manager {
                         <th><?php _e('Product Mapping', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Mode', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Product Express', 'woo-paypal-proxy-client'); ?></th>
+						<th><?php _e('Checkout Express', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Advanced Card', 'woo-paypal-proxy-client'); ?></th>
                         <th><?php _e('Actions', 'woo-paypal-proxy-client'); ?></th>
                     </tr>
@@ -241,6 +243,14 @@ class WPPPC_Server_Manager {
                                 ?>
                                 <span class="status-badge <?php echo $express_class; ?>"><?php echo $express_text; ?></span>
                             </td>
+							
+							<td>
+                                <?php 
+                                $checkout_express_text = $server->checkout_express ? __('On', 'woo-paypal-proxy-client') : __('Off', 'woo-paypal-proxy-client');
+								$checkout_express_class = $server->checkout_express ? 'checkout-express-on' : 'checkout-express-off';
+                                ?>
+                                <span class="status-badge <?php echo $checkout_express_class; ?>"><?php echo $checkout_express_text; ?></span>
+                            </td>
                             
                             <td>
                                 <?php 
@@ -317,6 +327,15 @@ class WPPPC_Server_Manager {
                                 <option value="0"><?php _e('Off', 'woo-paypal-proxy-client'); ?></option>
                             </select>
                             <p class="description"><?php _e('Enable express checkout on product pages.', 'woo-paypal-proxy-client'); ?></p>
+                        </div>
+						
+						<div class="form-field">
+                            <label for="checkout_express"><?php _e('Checkout Page Express', 'woo-paypal-proxy-client'); ?></label>
+                            <select id="checkout_express" name="checkout_express">
+                                <option value="1"><?php _e('On', 'woo-paypal-proxy-client'); ?></option>
+                                <option value="0"><?php _e('Off', 'woo-paypal-proxy-client'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Enable express checkout on checkout page.', 'woo-paypal-proxy-client'); ?></p>
                         </div>
                         
                         <div class="form-field">
@@ -582,6 +601,7 @@ class WPPPC_Server_Manager {
                                     $('#is_active').val(server.is_active);
                                     $('#is_personal').val(server.is_personal);
                                     $('#personal_express').val(server.personal_express);
+									$('#checkout_express').val(server.checkout_express);
                                     $('#enable_advanced_card').val(server.enable_advanced_card);
                                     $('#priority').val(server.priority);
                                     $('#accepts_credit_card').val(server.accepts_credit_card);
@@ -1081,6 +1101,7 @@ public function add_server_usage($server_id, $amount) {
                 'capacity_limit' => intval($server_data['capacity_limit']),
                 'is_personal' => intval($server_data['is_personal']),
                 'personal_express' => intval($server_data['personal_express']),
+				'checkout_express' => intval($server_data['checkout_express']),
                 'enable_advanced_card' => intval($server_data['enable_advanced_card']),
                 'is_active' => intval($server_data['is_active']),
                 'is_selected' => $is_first_server ? 1 : 0, // Select if it's the first server
@@ -1173,6 +1194,7 @@ public function add_server_usage($server_id, $amount) {
                 'capacity_limit' => intval($server_data['capacity_limit']),
                 'is_personal' => intval($server_data['is_personal']),
                 'personal_express' => intval($server_data['personal_express']),
+				'checkout_express' => intval($server_data['checkout_express']),
                 'enable_advanced_card' => intval($server_data['enable_advanced_card']),
                 'is_active' => intval($server_data['is_active']),
                 'priority' => intval($server_data['priority']),

@@ -105,6 +105,12 @@ handleIframeMessages: function(event) {
                 }
             });
             observer.observe(addToCartBtn, { attributes: true, attributeFilter: ['class'] });
+            
+             if (addToCartBtn.classList.contains('disabled')) {
+                self.sendMessageToIframe({ action: 'disable_paypal_button' });
+            } else {
+                self.sendMessageToIframe({ action: 'enable_paypal_button' });
+            }
             break;
             
         case 'button_clicked':

@@ -467,7 +467,7 @@ public function calculate_shipping_methods() {
             'wpppc-product-express',
             WPPPC_PLUGIN_URL . 'assets/js/product-express.js',
             array('jquery', 'wc-checkout', 'wc-add-to-cart', 'wc-cart-fragments'),
-            time(),
+            '4.5',
             true
         );
         
@@ -475,7 +475,7 @@ public function calculate_shipping_methods() {
                 'google-maps-api',
                 'https://maps.googleapis.com/maps/api/js?key=' . $this->map_api_key . '&libraries=places&loading=async',
                 array('jquery'),
-                '4.2',
+                '4.5',
                 true
         );
         
@@ -483,7 +483,7 @@ public function calculate_shipping_methods() {
             'wpppc-google-autocomplete',
             WPPPC_PLUGIN_URL . 'assets/js/google-autocomplete.js',
             array('jquery'),
-            '4.2',
+            '4.5',
             true
         );
         
@@ -491,7 +491,7 @@ public function calculate_shipping_methods() {
             'wpppc-product-express',
             WPPPC_PLUGIN_URL . 'assets/css/product-express.css',
             array(),
-            '4.2'
+            '4.5'
         );
         
         wp_localize_script('wpppc-product-express', 'wpppc_product_express', array(

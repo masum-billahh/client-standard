@@ -339,6 +339,12 @@ function cleanAndParseAmount(amount) {
         switch (event.data.action) {
             case 'button_loaded':
                 debug('PayPal Express button loaded');
+				if(event.data.iframeId === 'paypal-express-iframe-default'){
+					sendMessageToIframe({
+                        action: 'enable_paypal_button',
+                        message: 'enable_paypal_button'
+                    });
+				}
                 break;
                 
              case 'validate_before_paypal':

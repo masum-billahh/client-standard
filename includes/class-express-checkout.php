@@ -87,6 +87,7 @@ class WPPPC_Express_Checkout {
      * Add Express Checkout button to checkout page
      */
     public function add_express_checkout_button_to_checkout() {
+		
         // Check if gateway is enabled - EXIT if disabled
         if (!$this->is_gateway_enabled()) {
             return;
@@ -112,7 +113,11 @@ class WPPPC_Express_Checkout {
         
         //Check if server is in Personal mode, if so don't show Express Checkout
         if (!empty($server->is_personal)) {
-            
+            return;
+        }
+		
+		//Check if express is turned on
+		if (!empty(!$server->checkout_express)) {
             return;
         }
         
@@ -137,14 +142,8 @@ class WPPPC_Express_Checkout {
         if (!is_cart() && !is_checkout()) {
             return;
         }
-        
-        // Enqueue custom express checkout styles
-        wp_enqueue_style('wpppc-express-checkout', WPPPC_PLUGIN_URL . 'assets/css/express-checkout.css', array(), WPPPC_VERSION);
-        
-        // Enqueue custom script for Express Checkout
-        wp_enqueue_script('wpppc-express-checkout', WPPPC_PLUGIN_URL . 'assets/js/express-checkout.js', array('jquery'), time(), true);
-        
-        // Get server for button URL
+		
+		 // Get server for button URL
         $server_manager = WPPPC_Server_Manager::get_instance();
         $server = $server_manager->get_selected_server();
         
@@ -155,7 +154,17 @@ class WPPPC_Express_Checkout {
         if (!$server) {
             return;
         }
+		
+		if (!empty(!$server->checkout_express)) {
+            return;
+        }
         
+        // Enqueue custom express checkout styles
+        wp_enqueue_style('wpppc-express-checkout', WPPPC_PLUGIN_URL . 'assets/css/express-checkout.css', array(), WPPPC_VERSION);
+        
+        // Enqueue custom script for Express Checkout
+        wp_enqueue_script('wpppc-express-checkout', WPPPC_PLUGIN_URL . 'assets/js/express-checkout.js', array('jquery'), time(), true);
+      
         // Get API handler with server
         $api_handler = new WPPPC_API_Handler();
         
